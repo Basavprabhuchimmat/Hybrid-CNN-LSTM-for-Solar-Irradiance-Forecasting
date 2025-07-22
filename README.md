@@ -40,12 +40,19 @@ Accurate solar irradiance forecasting is critical for renewable energy planning 
 
 Hybrid-CNN-LSTM-for-Solar-Irradiance-Forecasting/
 │
+
 ├── data/                       # Preprocessed dataset & images
+
 ├── models/                     # Saved model weights and architecture
+
 ├── notebook/                   # Jupyter notebooks for training & evaluation
+
 ├── app/                        # Flask web app interface (if implemented)
+
 ├── utils/                      # Helper scripts for preprocessing, visualization
+
 ├── README.md                   # Project documentation
+
 └── requirements.txt            # Dependencies
 
 
