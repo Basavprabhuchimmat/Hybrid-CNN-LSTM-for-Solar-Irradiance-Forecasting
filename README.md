@@ -39,6 +39,7 @@ Accurate solar irradiance forecasting is critical for renewable energy planning 
 ## 🗂️ Project Structure
 
 Hybrid-CNN-LSTM-for-Solar-Irradiance-Forecasting/
+
 │
 
 ├── data/                       # Preprocessed dataset & images
