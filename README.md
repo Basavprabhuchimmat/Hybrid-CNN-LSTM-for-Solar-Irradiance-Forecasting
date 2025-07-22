@@ -1,8 +1,3 @@
-Here’s a professional and visually appealing `README.md` file for your GitHub repository **"Hybrid-CNN-LSTM-for-Solar-Irradiance-Forecasting"**, designed to impress both technical and non-technical audiences:
-
----
-
-```markdown
 # ☀️ Hybrid CNN-LSTM for Solar Irradiance Forecasting 🌤️
 
 [![Python](https://img.shields.io/badge/Python-3.9-blue?logo=python)](https://www.python.org/)
@@ -43,8 +38,6 @@ Accurate solar irradiance forecasting is critical for renewable energy planning 
 
 ## 🗂️ Project Structure
 
-```
-
 Hybrid-CNN-LSTM-for-Solar-Irradiance-Forecasting/
 │
 ├── data/                       # Preprocessed dataset & images
@@ -55,9 +48,6 @@ Hybrid-CNN-LSTM-for-Solar-Irradiance-Forecasting/
 ├── README.md                   # Project documentation
 └── requirements.txt            # Dependencies
 
-````
-
----
 
 ## 🌐 Web Interface (Optional)
 
@@ -90,7 +80,7 @@ A simple Flask-based dashboard allows users to:
 - NASA POWER API
 - Flask (for Web UI)
 
----
+
 
 ## ⚙️ Installation
 
@@ -159,15 +149,3 @@ This project is licensed under the [MIT License](LICENSE).
 🔗 [LinkedIn](https://www.linkedin.com/in/your-profile) | [GitHub](https://github.com/Anand-b-patil)
 
 ---
-
-```
-
----
-
-Let me know if you also want:
-- A version with a dynamic badge for accuracy from CI logs.
-- Markdown display optimization for GitHub Pages.
-- Auto-deployment to HuggingFace Spaces or a demo on Streamlit.
-
-Would you like me to add a `.gif` of the UI if you have one, or generate a banner image?
-```
