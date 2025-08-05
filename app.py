@@ -10,7 +10,6 @@ from datetime import datetime
 
 # Import our models
 from cnn_model import SolarCNNRegression, SolarCNNWithFeatureExtraction
-from lstm_model import SolarLSTMForecasting
 from preprocess import IRImageProcessor
 
 # Configure logging
@@ -26,8 +25,8 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 class SolarForecastingAPI:
     """
-    API class for solar irradiance nowcasting and forecasting
-    Supports both single image nowcasting and sequence-based forecasting
+    API class for solar irradiance nowcasting
+    Supports single image nowcasting
     """
 
     def __init__(self):
@@ -37,15 +36,14 @@ class SolarForecastingAPI:
         # Initialize image processor
         self.image_processor = IRImageProcessor(target_size=(240, 320))
 
-        # Model placeholders
+        # Model placeholder
         self.nowcast_model = None
-        self.forecast_model = None
 
-        # Load models
-        self.load_models()
+        # Load model
+        self.load_model()
 
-    def load_models(self):
-        """Load trained models"""
+    def load_model(self):
+        """Load trained CNN model"""
         try:
             # Load CNN nowcasting model
             if os.path.exists('models/best_cnn_model.pth'):
@@ -55,26 +53,8 @@ class SolarForecastingAPI:
                 self.nowcast_model.load_state_dict(checkpoint['model_state_dict'])
                 self.nowcast_model.eval()
                 logger.info("CNN model loaded successfully")
-
-            # Load LSTM forecasting model
-            if os.path.exists('models/best_lstm_model.pth'):
-                logger.info("Loading LSTM forecasting model...")
-                checkpoint = torch.load('models/best_lstm_model.pth', map_location=self.device, weights_only=False)
-                config = checkpoint.get('config', {})
-
-                self.forecast_model = SolarLSTMForecasting(
-                    input_size=1,
-                    hidden_size=config.get('lstm_hidden_size', 128),
-                    num_layers=config.get('lstm_num_layers', 2),
-                    output_size=config.get('forecast_horizon', 4)
-                ).to(self.device)
-
-                self.forecast_model.load_state_dict(checkpoint['model_state_dict'])
-                self.forecast_model.eval()
-                logger.info("LSTM model loaded successfully")
-
         except Exception as e:
-            logger.error(f"Error loading models: {str(e)}")
+            logger.error(f"Error loading model: {str(e)}")
 
     def preprocess_image(self, image_path):
         """Preprocess a single IR image"""
@@ -114,33 +94,6 @@ class SolarForecastingAPI:
 
         except Exception as e:
             logger.error(f"Error in nowcasting: {str(e)}")
-            raise
-
-    def forecast_from_sequence(self, irradiance_sequence):
-        """Perform forecasting from irradiance sequence"""
-        if self.forecast_model is None:
-            raise ValueError("LSTM forecasting model not loaded")
-
-        try:
-            # Convert to tensor
-            seq_tensor = torch.tensor(irradiance_sequence, dtype=torch.float32)
-            seq_tensor = seq_tensor.unsqueeze(0).unsqueeze(-1)  # (1, seq_len, 1)
-            seq_tensor = seq_tensor.to(self.device)
-
-            # Predict
-            with torch.no_grad():
-                forecast = self.forecast_model(seq_tensor)
-                forecast_values = forecast.squeeze().cpu().numpy().tolist()
-
-            return {
-                'forecast_irradiance': [round(val, 2) for val in forecast_values],
-                'forecast_horizon': len(forecast_values),
-                'timestamp': datetime.now().isoformat(),
-                'model': 'LSTM_Forecasting'
-            }
-
-        except Exception as e:
-            logger.error(f"Error in forecasting: {str(e)}")
             raise
 
 # Initialize API
@@ -189,35 +142,11 @@ def predict_single():
         logger.error(f"Error in single prediction: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/forecast', methods=['POST'])
-def forecast_sequence():
-    """Forecasting from irradiance sequence endpoint"""
-    try:
-        data = request.get_json()
-
-        if 'irradiance_sequence' not in data:
-            return jsonify({'error': 'No irradiance sequence provided'}), 400
-
-        sequence = data['irradiance_sequence']
-
-        if not isinstance(sequence, list) or len(sequence) < 10:
-            return jsonify({'error': 'Sequence must be a list with at least 10 values'}), 400
-
-        # Perform forecasting
-        result = api.forecast_from_sequence(sequence)
-
-        return jsonify(result)
-
-    except Exception as e:
-        logger.error(f"Error in forecasting: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
     model_status = {
-        'cnn_loaded': api.nowcast_model is not None,
-        'lstm_loaded': api.forecast_model is not None
+        'cnn_loaded': api.nowcast_model is not None
     }
 
     return jsonify({
@@ -228,4 +157,4 @@ def health_check():
     })
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0',
