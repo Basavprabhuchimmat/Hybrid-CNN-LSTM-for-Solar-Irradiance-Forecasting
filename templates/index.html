@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar Irradiance Forecasting System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.2em;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .tab.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .tab:hover:not(.active) {
+            background: #e9ecef;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .upload-area {
+            border: 3px dashed #3498db;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            background: #f8fbff;
+        }
+
+        .upload-area.dragover {
+            border-color: #2980b9;
+            background: #e3f2fd;
+        }
+
+        .upload-area input[type="file"] {
+            display: none;
+        }
+
+        .upload-button {
+            background: #3498db;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-button:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .predict-button {
+            background: #e74c3c;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: 600;
+            width: 100%;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .predict-button:hover:not(:disabled) {
+            background: #c0392b;
+            transform: translateY(-2px);
+        }
+
+        .predict-button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-area {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .result-area.show {
+            display: block;
+        }
+
+        .result-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .result-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .result-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #e74c3c;
+            margin-bottom: 5px;
+        }
+
+        .result-unit {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+
+        .sequence-input {
+            width: 100%;
+            height: 100px;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
+
+        .sequence-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .help-text {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #e74c3c;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .forecast-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .forecast-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .forecast-step {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+        }
+
+        .forecast-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .model-info {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+
+        .file-list {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            background: white;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-size: 0.9em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-remove {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 2px 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌞 Solar Irradiance Forecasting</h1>
+            <p>Advanced CNN-LSTM Framework for Solar Power Prediction</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('nowcast')">Single Image Nowcasting</button>
+            <button class="tab" onclick="switchTab('forecast')">Time Series Forecasting</button>
+            <button class="tab" onclick="switchTab('hybrid')">Hybrid Sequence Prediction</button>
+        </div>
+
+        <!-- Single Image Nowcasting Tab -->
+        <div id="nowcast" class="tab-content active">
+            <h2>Single Image Nowcasting</h2>
+            <p class="help-text">Upload a single infrared sky image to get current solar irradiance prediction using CNN regression model.</p>
+
+            <div class="upload-area" id="upload-area-single">
+                <div>
+                    <h3>📷 Upload IR Sky Image</h3>
+                    <p>Drag and drop an image here or click to browse</p>
+                    <input type="file" id="single-file" accept="image/*">
+                    <button class="upload-button" onclick="document.getElementById('single-file').click()">
+                        Choose Image
+                    </button>
+                </div>
+            </div>
+
+            <button class="predict-button" id="predict-single" onclick="predictSingle()" disabled>
+                Predict Current Irradiance
+            </button>
+
+            <div class="loading" id="loading-single">
+                <div class="spinner"></div>
+                <p>Processing image and predicting irradiance...</p>
+            </div>
+
+            <div class="result-area" id="result-single">
+                <div class="result-card">
+                    <div class="result-title">Current Solar Irradiance</div>
+                    <div class="result-value" id="nowcast-value">--</div>
+                    <div class="result-unit">W/m²</div>
+                    <div class="model-info" id="nowcast-info">--</div>
+                </div>
+            </div>
+
+            <div class="error" id="error-single"></div>
+        </div>
+
+        <!-- Time Series Forecasting Tab -->
+        <div id="forecast" class="tab-content">
+            <h2>Time Series Forecasting</h2>
+            <p class="help-text">Enter a sequence of historical irradiance values (comma-separated) to forecast future values using LSTM model.</p>
+
+            <textarea class="sequence-input" id="irradiance-sequence" 
+                      placeholder="Enter irradiance values separated by commas (e.g., 450.2, 467.8, 523.1, 498.7, ...)&#10;Minimum 20 values required for accurate forecasting"></textarea>
+
+            <div class="help-text">
+                Example: 450.2, 467.8, 523.1, 498.7, 512.3, 489.6, 501.2, 478.9, 534.1, 556.7, 542.3, 518.9, 495.4, 473.2, 461.8, 448.3, 436.7, 429.1, 423.5, 418.2
+            </div>
+
+            <button class="predict-button" id="predict-forecast" onclick="predictForecast()">
+                Generate Forecast
+            </button>
+
+            <div class="loading" id="loading-forecast">
+                <div class="spinner"></div>
+                <p>Analyzing time series and generating forecast...</p>
+            </div>
+
+            <div class="result-area" id="result-forecast">
+                <div class="result-card">
+                    <div class="result-title">Forecasted Solar Irradiance</div>
+                    <div class="forecast-grid" id="forecast-grid"></div>
+                    <div class="model-info" id="forecast-info">--</div>
+                </div>
+            </div>
+
+            <div class="error" id="error-forecast"></div>
+        </div>
+
+        <!-- Hybrid Sequence Prediction Tab -->
+        <div id="hybrid" class="tab-content">
+            <h2>Hybrid CNN-LSTM Prediction</h2>
+            <p class="help-text">Upload a sequence of IR sky images (minimum 20) to get both nowcasting and forecasting using the hybrid model.</p>
+
+            <div class="upload-area" id="upload-area-sequence">
+                <div>
+                    <h3>📁 Upload Image Sequence</h3>
+                    <p>Drag and drop multiple images here or click to browse</p>
+                    <input type="file" id="sequence-files" accept="image/*" multiple>
+                    <button class="upload-button" onclick="document.getElementById('sequence-files').click()">
+                        Choose Images
+                    </button>
+                </div>
+            </div>
+
+            <div class="file-list" id="file-list" style="display: none;"></div>
+
+            <button class="predict-button" id="predict-hybrid" onclick="predictHybrid()" disabled>
+                Predict with Hybrid Model
+            </button>
+
+            <div class="loading" id="loading-hybrid">
+                <div class="spinner"></div>
+                <p>Processing image sequence with hybrid CNN-LSTM model...</p>
+            </div>
+
+            <div class="result-area" id="result-hybrid">
+                <div class="result-card">
+                    <div class="result-title">Nowcast Sequence</div>
+                    <div class="forecast-grid" id="nowcast-grid"></div>
+                </div>
+                <div class="result-card">
+                    <div class="result-title">Forecasted Values</div>
+                    <div class="forecast-grid" id="hybrid-forecast-grid"></div>
+                    <div class="model-info" id="hybrid-info">--</div>
+                </div>
+            </div>
+
+            <div class="error" id="error-hybrid"></div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFiles = [];
+        let sequenceFiles = [];
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        // File upload handlers
+        document.getElementById('single-file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                selectedFiles = [file];
+                document.getElementById('predict-single').disabled = false;
+                updateUploadArea('upload-area-single', `Selected: ${file.name}`);
+            }
+        });
+
+        document.getElementById('sequence-files').addEventListener('change', function(e) {
+            sequenceFiles = Array.from(e.target.files);
+            updateFileList();
+            document.getElementById('predict-hybrid').disabled = sequenceFiles.length < 10;
+        });
+
+        // Drag and drop functionality
+        ['upload-area-single', 'upload-area-sequence'].forEach(areaId => {
+            const area = document.getElementById(areaId);
+
+            area.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                area.classList.add('dragover');
+            });
+
+            area.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                area.classList.remove('dragover');
+            });
+
+            area.addEventListener('drop', function(e) {
+                e.preventDefault();
+                area.classList.remove('dragover');
+
+                const files = Array.from(e.dataTransfer.files);
+
+                if (areaId === 'upload-area-single' && files.length > 0) {
+                    selectedFiles = [files[0]];
+                    document.getElementById('predict-single').disabled = false;
+                    updateUploadArea(areaId, `Selected: ${files[0].name}`);
+                } else if (areaId === 'upload-area-sequence') {
+                    sequenceFiles = files;
+                    updateFileList();
+                    document.getElementById('predict-hybrid').disabled = sequenceFiles.length < 10;
+                }
+            });
+        });
+
+        function updateUploadArea(areaId, text) {
+            const area = document.getElementById(areaId);
+            area.innerHTML = `<div><h3>✅ File Selected</h3><p>${text}</p></div>`;
+        }
+
+        function updateFileList() {
+            const fileList = document.getElementById('file-list');
+
+            if (sequenceFiles.length === 0) {
+                fileList.style.display = 'none';
+                return;
+            }
+
+            fileList.style.display = 'block';
+            fileList.innerHTML = `
+                <h4>${sequenceFiles.length} files selected</h4>
+                ${sequenceFiles.map((file, index) => `
+                    <div class="file-item">
+                        <span>${file.name}</span>
+                        <button class="file-remove" onclick="removeFile(${index})">×</button>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        function removeFile(index) {
+            sequenceFiles.splice(index, 1);
+            updateFileList();
+            document.getElementById('predict-hybrid').disabled = sequenceFiles.length < 10;
+        }
+
+        // Prediction functions
+        async function predictSingle() {
+            if (!selectedFiles.length) return;
+
+            showLoading('loading-single');
+            hideResults(['result-single', 'error-single']);
+
+            const formData = new FormData();
+            formData.append('file', selectedFiles[0]);
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    displaySingleResult(result);
+                } else {
+                    showError('error-single', result.error || 'Prediction failed');
+                }
+            } catch (error) {
+                showError('error-single', 'Network error: ' + error.message);
+            } finally {
+                hideLoading('loading-single');
+            }
+        }
+
+        async function predictForecast() {
+            const sequenceText = document.getElementById('irradiance-sequence').value.trim();
+
+            if (!sequenceText) {
+                showError('error-forecast', 'Please enter irradiance sequence');
+                return;
+            }
+
+            // Parse sequence
+            const sequence = sequenceText.split(',').map(val => {
+                const num = parseFloat(val.trim());
+                if (isNaN(num)) {
+                    throw new Error(`Invalid number: ${val.trim()}`);
+                }
+                return num;
+            });
+
+            if (sequence.length < 10) {
+                showError('error-forecast', 'Minimum 10 values required');
+                return;
+            }
+
+            showLoading('loading-forecast');
+            hideResults(['result-forecast', 'error-forecast']);
+
+            try {
+                const response = await fetch('/forecast', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        irradiance_sequence: sequence
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    displayForecastResult(result);
+                } else {
+                    showError('error-forecast', result.error || 'Forecasting failed');
+                }
+            } catch (error) {
+                showError('error-forecast', 'Error: ' + error.message);
+            } finally {
+                hideLoading('loading-forecast');
+            }
+        }
+
+        async function predictHybrid() {
+            if (sequenceFiles.length < 10) {
+                showError('error-hybrid', 'Minimum 20 images required for hybrid prediction');
+                return;
+            }
+
+            showLoading('loading-hybrid');
+            hideResults(['result-hybrid', 'error-hybrid']);
+
+            const formData = new FormData();
+            sequenceFiles.forEach(file => {
+                formData.append('files', file);
+            });
+
+            try {
+                const response = await fetch('/hybrid_predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    displayHybridResult(result);
+                } else {
+                    showError('error-hybrid', result.error || 'Hybrid prediction failed');
+                }
+            } catch (error) {
+                showError('error-hybrid', 'Network error: ' + error.message);
+            } finally {
+                hideLoading('loading-hybrid');
+            }
+        }
+
+        // Display functions
+        function displaySingleResult(result) {
+            document.getElementById('nowcast-value').textContent = result.nowcast_irradiance;
+            document.getElementById('nowcast-info').textContent = `Model: ${result.model} | ${new Date(result.timestamp).toLocaleString()}`;
+            document.getElementById('result-single').classList.add('show');
+        }
+
+        function displayForecastResult(result) {
+            const grid = document.getElementById('forecast-grid');
+            grid.innerHTML = result.forecast_irradiance.map((value, index) => `
+                <div class="forecast-item">
+                    <div class="forecast-step">Step ${index + 1}</div>
+                    <div class="forecast-value">${value}</div>
+                    <div class="result-unit">W/m²</div>
+                </div>
+            `).join('');
+
+            document.getElementById('forecast-info').textContent = `Model: ${result.model} | ${new Date(result.timestamp).toLocaleString()}`;
+            document.getElementById('result-forecast').classList.add('show');
+        }
+
+        function displayHybridResult(result) {
+            // Display nowcast sequence
+            const nowcastGrid = document.getElementById('nowcast-grid');
+            nowcastGrid.innerHTML = result.nowcast_sequence.map((value, index) => `
+                <div class="forecast-item">
+                    <div class="forecast-step">Image ${index + 1}</div>
+                    <div class="forecast-value">${value}</div>
+                    <div class="result-unit">W/m²</div>
+                </div>
+            `).join('');
+
+            // Display forecast
+            const forecastGrid = document.getElementById('hybrid-forecast-grid');
+            forecastGrid.innerHTML = result.forecast_irradiance.map((value, index) => `
+                <div class="forecast-item">
+                    <div class="forecast-step">Future ${index + 1}</div>
+                    <div class="forecast-value">${value}</div>
+                    <div class="result-unit">W/m²</div>
+                </div>
+            `).join('');
+
+            document.getElementById('hybrid-info').textContent = `Model: ${result.model} | ${new Date(result.timestamp).toLocaleString()}`;
+            document.getElementById('result-hybrid').classList.add('show');
+        }
+
+        // Utility functions
+        function showLoading(loadingId) {
+            document.getElementById(loadingId).classList.add('show');
+        }
+
+        function hideLoading(loadingId) {
+            document.getElementById(loadingId).classList.remove('show');
+        }
+
+        function showError(errorId, message) {
+            const errorEl = document.getElementById(errorId);
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+        }
+
+        function hideResults(elementIds) {
+            elementIds.forEach(id => {
+                document.getElementById(id).classList.remove('show');
+            });
+        }
+    </script>
+</body>
+</html>
