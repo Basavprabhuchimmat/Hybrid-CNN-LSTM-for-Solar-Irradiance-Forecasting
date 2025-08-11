@@ -2,11 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+#CNN Regression model for solar irradiance nowcasting from IR sky images.
 class SolarCNNRegression(nn.Module):
-    """
-    CNN Regression model for solar irradiance nowcasting from IR sky images.
-    Based on the paper's methodology for single-image irradiance prediction.
-    """
+    
 
     def __init__(self, input_channels=3, num_classes=1):
         super(SolarCNNRegression, self).__init__()
@@ -81,8 +79,9 @@ class SolarCNNRegression(nn.Module):
 
         return irradiance
 
+#Extract features for LSTM input
     def get_features(self, x):
-        """Extract features for LSTM input (used in hybrid approach)"""
+       
         with torch.no_grad():
             features = self.features(x)
             return features.flatten(1)  # Flatten for sequence input
