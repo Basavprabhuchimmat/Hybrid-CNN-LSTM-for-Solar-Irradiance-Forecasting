@@ -88,10 +88,7 @@ class SolarCNNRegression(nn.Module):
 
 
 class SolarCNNWithFeatureExtraction(SolarCNNRegression):
-    """
-    Extended CNN model that can output both irradiance prediction and features
-    for the hybrid CNN-LSTM approach described in the paper.
-    """
+    
 
     def __init__(self, input_channels=3, feature_dim=512):
         super().__init__(input_channels, 1)
@@ -124,5 +121,5 @@ class SolarCNNWithFeatureExtraction(SolarCNNRegression):
 
 # Legacy model for backward compatibility
 class SolarCNN(SolarCNNRegression):
-    """Legacy CNN model - kept for compatibility"""
+    
     pass
