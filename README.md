@@ -131,7 +131,7 @@ python app.py
 
 ## 📚 References
 
-* 📜 *A Hybrid CNN-LSTM Framework and Infrared Image Processing for Solar Irradiance Forecasting*(https://ieeexplore.ieee.org/document/10906220)
+* 📜 [A Hybrid CNN-LSTM Framework and Infrared Image Processing for Solar Irradiance Forecasting](https://ieeexplore.ieee.org/document/10906220)
 * 🌍 [GIRASOL Dataset](https://doi.org/10.1016/j.dib.2021.106914)
 * 🧠 [Keras Documentation](https://keras.io/)
 
