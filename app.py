@@ -25,10 +25,6 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 class SolarForecastingAPI:
-    """
-    API class for solar irradiance nowcasting and forecasting
-    Supports both single image nowcasting and sequence-based forecasting
-    """
 
     def __init__(self):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -45,7 +41,7 @@ class SolarForecastingAPI:
         self.load_models()
 
     def load_models(self):
-        """Load trained models"""
+        
         try:
             # Load CNN nowcasting model
             if os.path.exists('models/best_cnn_model.pth'):
@@ -77,7 +73,7 @@ class SolarForecastingAPI:
             logger.error(f"Error loading models: {str(e)}")
 
     def preprocess_image(self, image_path):
-        """Preprocess a single IR image"""
+        
         try:
             # Process the image
             processed_img = self.image_processor.process_single_image(image_path)
@@ -93,7 +89,7 @@ class SolarForecastingAPI:
             raise
 
     def nowcast_single_image(self, image_path):
-        """Perform nowcasting on a single image"""
+        
         if self.nowcast_model is None:
             raise ValueError("CNN nowcasting model not loaded")
 
@@ -117,7 +113,7 @@ class SolarForecastingAPI:
             raise
 
     def forecast_from_sequence(self, irradiance_sequence):
-        """Perform forecasting from irradiance sequence"""
+        
         if self.forecast_model is None:
             raise ValueError("LSTM forecasting model not loaded")
 
@@ -148,12 +144,12 @@ api = SolarForecastingAPI()
 
 @app.route('/')
 def index():
-    """Main page"""
+    
     return render_template('index.html')
 
 @app.route('/predict', methods=['POST'])
 def predict_single():
-    """Single image nowcasting endpoint"""
+    
     try:
         if 'file' not in request.files:
             return jsonify({'error': 'No file uploaded'}), 400
@@ -191,7 +187,7 @@ def predict_single():
 
 @app.route('/forecast', methods=['POST'])
 def forecast_sequence():
-    """Forecasting from irradiance sequence endpoint"""
+    
     try:
         data = request.get_json()
 
@@ -214,7 +210,7 @@ def forecast_sequence():
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
+
     model_status = {
         'cnn_loaded': api.nowcast_model is not None,
         'lstm_loaded': api.forecast_model is not None
