@@ -85,7 +85,6 @@ A simple **Flask-based dashboard** 🖥️ allows users to:
 - 🧠 TensorFlow / Keras  
 - 🔢 NumPy, Pandas  
 - 🎨 OpenCV, Matplotlib, Seaborn  
-- 🌍 NASA POWER API  
 - 🌐 Flask (for Web UI)  
 
 ---
@@ -111,13 +110,13 @@ pip install -r requirements.txt
 
 ```bash
 # Step 1: Preprocess the data
-python utils/preprocess.py
+python scripts/preprocess.py
 
 # Step 2: Train the model
-python notebook/train_model.py
+python scripts/train_model.py
 
 # Step 3: Run prediction
-python notebook/predict.py
+python app.py
 ```
 
 ---
@@ -132,8 +131,8 @@ python notebook/predict.py
 
 ## 📚 References
 
-* 📜 *A Hybrid CNN-LSTM Framework and Infrared Image Processing for Solar Irradiance Forecasting*
-* 🌍 [NASA POWER Dataset](https://power.larc.nasa.gov/)
+* 📜 *A Hybrid CNN-LSTM Framework and Infrared Image Processing for Solar Irradiance Forecasting*(https://ieeexplore.ieee.org/document/10906220)
+* 🌍 [GIRASOL Dataset](https://doi.org/10.1016/j.dib.2021.106914)
 * 🧠 [Keras Documentation](https://keras.io/)
 
 ---
