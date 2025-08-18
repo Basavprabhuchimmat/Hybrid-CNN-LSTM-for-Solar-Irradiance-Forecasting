@@ -1,6 +1,6 @@
 
 
-# ☀️ Hybrid CNN-LSTM for Solar Irradiance Forecasting 🌤️
+# 🌤️ Hybrid CNN-LSTM for Solar Irradiance Forecasting 
 
 [![Python](https://img.shields.io/badge/Python-3.9+-blue?logo=python)](https://www.python.org/)  [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.12-orange?logo=tensorflow)](https://www.tensorflow.org/)  [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)  ![Last Update](https://img.shields.io/badge/Last%20Update-Aug%202025-brightgreen)
 
@@ -50,7 +50,7 @@ Hybrid-CNN-LSTM-for-Solar-Irradiance-Forecasting/
 ├── models/           # Saved model weights and architecture
 ├── notebook/         # Jupyter notebooks for training & evaluation
 ├── app/              # Flask web app interface (if implemented)
-├── utils/            # Helper scripts for preprocessing, visualization
+├── scripts/            # Helper scripts for preprocessing, visualization
 ├── README.md         # Project documentation
 └── requirements.txt  # Dependencies
 
