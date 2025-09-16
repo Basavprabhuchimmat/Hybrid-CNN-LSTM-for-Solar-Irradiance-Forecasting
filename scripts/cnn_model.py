@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 #CNN Regression model for solar irradiance nowcasting from IR sky images.
 class SolarCNNRegression(nn.Module):
-    
+
 
     def __init__(self, input_channels=3, num_classes=1):
         super(SolarCNNRegression, self).__init__()
@@ -17,7 +17,7 @@ class SolarCNNRegression(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(2, 2),  # 240x320 -> 120x160
 
-            # Second conv block  
+            # Second conv block
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
@@ -81,14 +81,14 @@ class SolarCNNRegression(nn.Module):
 
 #Extract features for LSTM input
     def get_features(self, x):
-       
+
         with torch.no_grad():
             features = self.features(x)
             return features.flatten(1)  # Flatten for sequence input
 
 
 class SolarCNNWithFeatureExtraction(SolarCNNRegression):
-    
+
 
     def __init__(self, input_channels=3, feature_dim=512):
         super().__init__(input_channels, 1)
@@ -121,5 +121,5 @@ class SolarCNNWithFeatureExtraction(SolarCNNRegression):
 
 # Legacy model for backward compatibility
 class SolarCNN(SolarCNNRegression):
-    
+
     pass
