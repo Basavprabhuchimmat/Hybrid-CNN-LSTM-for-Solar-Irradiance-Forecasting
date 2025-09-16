@@ -1,16 +1,16 @@
 
 
-# ☀️ Hybrid CNN-LSTM for Solar Irradiance Forecasting 🌤️
+#  Hybrid CNN-LSTM for Solar Irradiance Forecasting 
 
 [![Python](https://img.shields.io/badge/Python-3.9+-blue?logo=python)](https://www.python.org/)  [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.12-orange?logo=tensorflow)](https://www.tensorflow.org/)  [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)  ![Last Update](https://img.shields.io/badge/Last%20Update-Aug%202025-brightgreen)
 
-> 🚀 A deep learning-based approach for **short-term solar irradiance forecasting** using a **Hybrid CNN-LSTM** model with infrared image processing, inspired by cutting-edge research.
+>  A deep learning-based approach for **short-term solar irradiance forecasting** using a **Hybrid CNN-LSTM** model with infrared image processing, inspired by cutting-edge research.
 
 ---
 
-## 📌 Project Overview
+##  Project Overview
 
-Accurate solar irradiance forecasting is critical for **renewable energy planning** and **grid stability** ⚡.  
+Accurate solar irradiance forecasting is critical for **renewable energy planning** and **grid stability** .  
 
 This project implements a **Hybrid CNN-LSTM model** that:
 - 🖼️ Uses **Convolutional Neural Networks (CNNs)** for spatial feature extraction  
@@ -19,9 +19,9 @@ This project implements a **Hybrid CNN-LSTM model** that:
 
 ---
 
-## 🧠 Methodology
+##  Methodology
 
-### ✅ Steps Involved
+###  Steps Involved
 1. **Data Collection**
    - Infrared satellite images 🛰️
    - Global Solar Irradiance (GSI) data from NASA POWER  
@@ -40,7 +40,7 @@ This project implements a **Hybrid CNN-LSTM model** that:
 
 ---
 
-## 🗂️ Project Structure
+##  Project Structure
 
 ```
 
@@ -50,7 +50,7 @@ Hybrid-CNN-LSTM-for-Solar-Irradiance-Forecasting/
 ├── models/           # Saved model weights and architecture
 ├── notebook/         # Jupyter notebooks for training & evaluation
 ├── app/              # Flask web app interface (if implemented)
-├── utils/            # Helper scripts for preprocessing, visualization
+├── scripts/            # Helper scripts for preprocessing, visualization
 ├── README.md         # Project documentation
 └── requirements.txt  # Dependencies
 
@@ -58,7 +58,7 @@ Hybrid-CNN-LSTM-for-Solar-Irradiance-Forecasting/
 
 ---
 
-## 🌐 Web Interface (Optional)
+##  Web Interface (Optional)
 
 A simple **Flask-based dashboard** 🖥️ allows users to:
 - Upload infrared satellite images  
@@ -67,19 +67,17 @@ A simple **Flask-based dashboard** 🖥️ allows users to:
 
 ---
 
-## 📊 Results
+## Results
 
 - 📈 **Model Accuracy**: ~XX% (update with metrics)  
 - 🧪 Evaluated using: **MAE, RMSE, R² Score**  
 - 🖼️ Visualization: Actual vs Predicted irradiance over time  
 
-<p align="center">
-  <img src="notebook/output_plot.png" width="600" alt="Predicted vs Actual Plot"/>
-</p>
+
 
 ---
 
-## 🧰 Tech Stack
+##  Tech Stack
 
 - 🐍 Python 3.9+  
 - 🧠 TensorFlow / Keras  
@@ -89,7 +87,7 @@ A simple **Flask-based dashboard** 🖥️ allows users to:
 
 ---
 
-## ⚙️ Installation
+##  Installation
 
 ```bash
 # Clone the repo
@@ -106,7 +104,7 @@ pip install -r requirements.txt
 
 ---
 
-## 🚀 Run the Model
+## Run the Model
 
 ```bash
 # Step 1: Preprocess the data
@@ -121,40 +119,31 @@ python app.py
 
 ---
 
-## 📸 Sample Output
 
-| Input Image (IR)                    | Predicted GSI                         |
-| ----------------------------------- | ------------------------------------- |
-| ![input](notebook/sample_input.png) | ![output](notebook/sample_output.png) |
-
----
-
-## 📚 References
+##  References
 
 * 📜 [A Hybrid CNN-LSTM Framework and Infrared Image Processing for Solar Irradiance Forecasting](https://ieeexplore.ieee.org/document/10906220)
 * 🌍 [GIRASOL Dataset](https://doi.org/10.1016/j.dib.2021.106914)
-* 🧠 [Keras Documentation](https://keras.io/)
 
 ---
 
-## 🤝 Contributing
+##  Contributing
 
 Contributions, ideas, and suggestions are welcome! 💡
 Feel free to **fork the repo** and submit a **pull request** 🌟
 
 ---
 
-## 📄 License
+##  License
 
 This project is licensed under the **MIT License** 📝
 
 ---
 
-## 🙋‍♂️ Author
+##  Author
 
 **Anand Bhimagouda Patil**
-📧 [anand.b.patil@example.com](mailto:anand.b.patil@example.com)
+📧 [anand.b.patil@example.com](mailto:ap6272440@gmail.com)
 🔗 [GitHub](https://github.com/Anand-b-patil) | [LinkedIn](https://linkedin.com/in/anand_b_patil)
-🔗 [GitHub](https://github.com/Anand-b-patil) | [LinkedIn](https://linkedin.com/in/your-profile)
 
 
