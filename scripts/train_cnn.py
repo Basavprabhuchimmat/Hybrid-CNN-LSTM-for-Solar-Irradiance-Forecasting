@@ -7,12 +7,12 @@ from torch.utils.data import DataLoader
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from cnn_model import SolarCNNRegression, SolarCNNWithFeatureExtraction
-from solar_datasets import SolarIrradianceDataset
-from preprocess import IRImageProcessor
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import json
 import cv2  # Needed for image reading
+from cnn_model import SolarCNNRegression, SolarCNNWithFeatureExtraction
+from solar_datasets import SolarIrradianceDataset
+from preprocess import IRImageProcessor
 
 class MultiDayDataset(torch.utils.data.Dataset):
     def __init__(self, image_paths, irradiance_values):
@@ -68,7 +68,7 @@ class CNNTrainer:
         self.config = {
             'learning_rate': 1e-4,
             'batch_size': 32,
-            'num_epochs': 50,
+            'num_epochs': 5,
             'weight_decay': 1e-4,
             'scheduler_patience': 10,
             'early_stopping_patience': 15,
@@ -84,6 +84,7 @@ class CNNTrainer:
         os.makedirs(self.config['log_dir'], exist_ok=True)
 
         # Initialize model
+        self.model_type = model_type # Store model type
         if model_type == 'with_features':
             self.model = SolarCNNWithFeatureExtraction().to(self.device)
         else:
@@ -91,14 +92,14 @@ class CNNTrainer:
 
         # Initialize optimizer and scheduler
         self.optimizer = optim.Adam(
-            self.model.parameters(), 
+            self.model.parameters(),
             lr=self.config['learning_rate'],
             weight_decay=self.config['weight_decay']
         )
 
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, 
-            mode='min', 
+            self.optimizer,
+            mode='min',
             patience=self.config['scheduler_patience'],
             factor=0.5,
         )
@@ -200,14 +201,19 @@ class CNNTrainer:
                     self.best_val_loss = val_loss
                     self.patience_counter = 0
 
-                    # Save best model
+                    # Save best model - check model_type
+                    model_path = os.path.join(self.config['save_dir'], 'best_cnn_model.pth')
+                    if self.model_type == 'with_features':
+                         model_path = os.path.join(self.config['save_dir'], 'best_cnn_with_features_model.pth')
+
                     torch.save({
                         'epoch': epoch,
                         'model_state_dict': self.model.state_dict(),
                         'optimizer_state_dict': self.optimizer.state_dict(),
                         'val_loss': val_loss,
                         'config': self.config
-                    }, os.path.join(self.config['save_dir'], 'best_cnn_model.pth'))
+                    }, model_path)
+
 
                     print(f"New best model saved! RMSE: {rmse:.2f} W/m²")
                 else:
@@ -218,13 +224,18 @@ class CNNTrainer:
                     break
 
         # Save final model
+        final_model_path = os.path.join(self.config['save_dir'], 'final_cnn_model.pth')
+        if self.model_type == 'with_features':
+            final_model_path = os.path.join(self.config['save_dir'], 'final_cnn_with_features_model.pth')
+
         torch.save({
             'epoch': epoch,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'train_losses': self.train_losses,
             'val_losses': self.val_losses
-        }, os.path.join(self.config['save_dir'], 'final_cnn_model.pth'))
+        }, final_model_path)
+
 
         # Save training history
         history = {
@@ -280,10 +291,10 @@ def train_cnn_nowcasting():
         'num_epochs': 5,
         # List of days
         'image_dirs': [
-            'data/processed/2019_01_18'
+            '/content/data/processed/2019_01_18'
         ],
         'irradiance_files': [
-            'GIRASOL_DATASET/2019_01_18/pyranometer/2019_01_18.csv'
+            '/content/drive/MyDrive/GIRASOL_DATASET/2019_01_18/pyranometer/2019_01_18.csv'
         ]
     }
 
@@ -301,23 +312,24 @@ def train_cnn_nowcasting():
 
     # Create data loaders
     train_loader = DataLoader(
-        train_dataset, 
-        batch_size=config['batch_size'], 
+        train_dataset,
+        batch_size=config['batch_size'],
         shuffle=True,
-        num_workers=4
+        num_workers=2
     )
 
     val_loader = DataLoader(
-        val_dataset, 
-        batch_size=config['batch_size'], 
+        val_dataset,
+        batch_size=config['batch_size'],
         shuffle=False,
-        num_workers=4
+        num_workers=2
     )
 
     print(f"Train samples: {len(train_dataset)}, Val samples: {len(val_dataset)}")
 
     # Initialize trainer
-    trainer = CNNTrainer(model_type='standard', config=config)
+    trainer = CNNTrainer(model_type='with_features', config=config)
+
 
     # Train model
     train_losses, val_losses = trainer.train(train_loader, val_loader)
