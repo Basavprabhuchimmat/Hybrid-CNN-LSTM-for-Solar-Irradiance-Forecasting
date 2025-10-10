@@ -5,7 +5,6 @@ from torch.utils.data import Dataset, DataLoader
 import cv2
 import numpy as np
 import pandas as pd
-from preprocess import IRImageProcessor
 
 class SolarIrradianceDataset(Dataset):
     """
@@ -26,7 +25,7 @@ class SolarIrradianceDataset(Dataset):
             self.irradiance_values = np.loadtxt(irradiance_file, delimiter=',')[:, 1].astype(np.float32)
 
         # Get image files
-        self.image_files = sorted([f for f in os.listdir(image_dir) 
+        self.image_files = sorted([f for f in os.listdir(image_dir)
                                   if f.endswith(('.png', '.jpg', '.jpeg'))])
 
         # Ensure we have matching number of images and irradiance values
@@ -76,7 +75,7 @@ class SolarSequenceDataset(Dataset):
     Dataset class for sequence-based training (for LSTM and hybrid model)
     """
 
-    def __init__(self, image_dir, irradiance_file, sequence_length=20, 
+    def __init__(self, image_dir, irradiance_file, sequence_length=20,
                  forecast_horizon=4, transform=None, target_size=(240, 320)):
         self.image_dir = image_dir
         self.sequence_length = sequence_length
@@ -92,7 +91,7 @@ class SolarSequenceDataset(Dataset):
             self.irradiance_values = np.loadtxt(irradiance_file, delimiter=',')[:, 1].astype(np.float32)
 
         # Get image files
-        self.image_files = sorted([f for f in os.listdir(image_dir) 
+        self.image_files = sorted([f for f in os.listdir(image_dir)
                                   if f.endswith(('.png', '.jpg', '.jpeg'))])
 
         # Ensure we have enough data for sequences

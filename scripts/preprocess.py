@@ -82,8 +82,12 @@ def preprocess_multiple_days(input_dirs, output_base_dir, target_size=(240, 320)
 if __name__ == '__main__':
     # Example usage for multiple days
     input_dirs = [
-        'GIRASOL_DATASET/2019_01_18/infrared',
-        'GIRASOL_DATASET/2019_01_19/infrared'        
+        r'D:\Projects\Hybrid CNN-LSTM for Solar Irradiance Forecasting\GIRASOL_DATASET\2019_01_15\infrared',
+        r'D:\Projects\Hybrid CNN-LSTM for Solar Irradiance Forecasting\GIRASOL_DATASET\2019_01_16\infrared',
+        r'D:\Projects\Hybrid CNN-LSTM for Solar Irradiance Forecasting\GIRASOL_DATASET\2019_01_17\infrared',
+        r'D:\Projects\Hybrid CNN-LSTM for Solar Irradiance Forecasting\GIRASOL_DATASET\2019_01_18\infrared',
+        r'D:\Projects\Hybrid CNN-LSTM for Solar Irradiance Forecasting\GIRASOL_DATASET\2019_01_19\infrared',
+        r'D:\Projects\Hybrid CNN-LSTM for Solar Irradiance Forecasting\GIRASOL_DATASET\2019_01_20\infrared'        
     ]
     preprocess_multiple_days(
         input_dirs=input_dirs,

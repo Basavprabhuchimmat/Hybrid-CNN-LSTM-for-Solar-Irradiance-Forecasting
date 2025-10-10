@@ -7,39 +7,46 @@ class SolarLSTMForecasting(nn.Module):
     Uses bidirectional LSTM with 2 layers and 128 hidden units per direction.
     """
 
-    def __init__(self, input_size=1, hidden_size=128, num_layers=2, output_size=4, dropout=0.2):
+    def __init__(self, input_size=1, hidden_size=128, num_layers=2, output_size=4, dropout=0.2, bidirectional=True, use_legacy_head=False):
         super(SolarLSTMForecasting, self).__init__()
 
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.output_size = output_size
+        self.bidirectional = bidirectional
+        self.use_legacy_head = use_legacy_head
 
         # Bidirectional LSTM with 2 layers as specified in paper
         self.lstm = nn.LSTM(
             input_size=input_size,
             hidden_size=hidden_size,
             num_layers=num_layers,
-            bidirectional=True,
+            bidirectional=bidirectional,
             batch_first=True,
             dropout=dropout if num_layers > 1 else 0
         )
 
         # Fully connected layers as specified in paper
-        # Input size is hidden_size * 2 (bidirectional) 
-        lstm_output_size = hidden_size * 2
+        # Input size depends on bidirectionality
+        lstm_output_size = hidden_size * (2 if bidirectional else 1)
 
-        self.fc_layers = nn.Sequential(
-            nn.Linear(lstm_output_size, 128),
-            nn.ReLU(),
-            nn.Dropout(dropout),
+        if self.use_legacy_head:
+            # Legacy single fully-connected head to match older checkpoints (keys: 'fc.weight', 'fc.bias')
+            self.fc = nn.Linear(lstm_output_size, output_size)
+        else:
+            # Modern multi-layer head
+            self.fc_layers = nn.Sequential(
+                nn.Linear(lstm_output_size, 128),
+                nn.ReLU(),
+                nn.Dropout(dropout),
 
-            nn.Linear(128, 64),
-            nn.ReLU(), 
-            nn.Dropout(dropout),
+                nn.Linear(128, 64),
+                nn.ReLU(), 
+                nn.Dropout(dropout),
 
-            nn.Linear(64, output_size)  # Predict next 4 timestamps
-        )
+                nn.Linear(64, output_size)
+            )
 
         self._initialize_weights()
 
@@ -56,10 +63,14 @@ class SolarLSTMForecasting(nn.Module):
                 start, end = n // 4, n // 2
                 param.data[start:end].fill_(1.)
 
-        for m in self.fc_layers:
-            if isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight)
-                nn.init.constant_(m.bias, 0)
+        if self.use_legacy_head:
+            nn.init.xavier_uniform_(self.fc.weight)
+            nn.init.constant_(self.fc.bias, 0)
+        else:
+            for m in self.fc_layers:
+                if isinstance(m, nn.Linear):
+                    nn.init.xavier_uniform_(m.weight)
+                    nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
         # x shape: (batch_size, sequence_length, input_size)
@@ -72,7 +83,10 @@ class SolarLSTMForecasting(nn.Module):
         last_output = lstm_out[:, -1, :]  # (batch_size, hidden_size * 2)
 
         # Pass through fully connected layers
-        forecast = self.fc_layers(last_output)
+        if self.use_legacy_head:
+            forecast = self.fc(last_output)
+        else:
+            forecast = self.fc_layers(last_output)
 
         return forecast
 
@@ -92,7 +106,7 @@ class HybridCNNLSTM(nn.Module):
 
         # CNN component for nowcasting (pre-trained or trainable)
         if cnn_model is None:
-            from improved_cnn_model import SolarCNNWithFeatureExtraction
+            from scripts.cnn_model import SolarCNNWithFeatureExtraction
             self.cnn = SolarCNNWithFeatureExtraction(feature_dim=feature_dim)
         else:
             self.cnn = cnn_model
