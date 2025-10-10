@@ -7,9 +7,10 @@ from flask import Flask, request, jsonify, render_template
 from werkzeug.utils import secure_filename
 import logging
 from datetime import datetime
+import json
 
 # Import our models
-from scripts.cnn_model import SolarCNNRegression, SolarCNNWithFeatureExtraction
+from scripts.EfficientNet import EfficientNetRegression
 from scripts.lstm_model import SolarLSTMForecasting, HybridCNNLSTM
 from scripts.preprocess import IRImageProcessor
 
@@ -49,35 +50,57 @@ class SolarForecastingAPI:
         """Load trained models"""
         try:
             # Load CNN nowcasting model
-            if os.path.exists('models/best_cnn_model.pth'):
+            if os.path.exists('models/best_efficientnet_model.pth'):
                 logger.info("Loading CNN nowcasting model...")
-                self.nowcast_model = SolarCNNRegression().to(self.device)
-                checkpoint = torch.load('models/best_cnn_model.pth', map_location=self.device)
-                self.nowcast_model.load_state_dict(checkpoint['model_state_dict'])
+                self.nowcast_model = EfficientNetRegression().to(self.device)
+                checkpoint = torch.load('models/best_efficientnet_model.pth', map_location=self.device)
+                self.nowcast_model.load_state_dict(checkpoint["model_state_dict"], strict=False)
                 self.nowcast_model.eval()
                 logger.info("CNN model loaded successfully")
 
             # Load LSTM forecasting model
-            if os.path.exists('models1/best_lstm_model.pth'):
+            # Try models/ then fallback to models1/ to support both locations
+            lstm_ckpt_path = None
+            for candidate in ['models/best_lstm_model.pth']:
+                if os.path.exists(candidate):
+                    lstm_ckpt_path = candidate
+                    break
+
+            if lstm_ckpt_path:
                 logger.info("Loading LSTM forecasting model...")
-                checkpoint = torch.load('models1/best_lstm_model.pth', map_location=self.device, weights_only=False)
+                checkpoint = torch.load(lstm_ckpt_path, map_location=self.device, weights_only=False)
                 config = checkpoint.get('config', {})
+
+                # Infer bidirectionality from state_dict keys if not explicitly provided
+                state_dict_keys = checkpoint.get('model_state_dict', {}).keys()
+                inferred_bidirectional = any('lstm.weight_ih_l0_reverse' in k for k in state_dict_keys) if state_dict_keys else True
+
+                use_legacy_head = any(k.startswith('fc.') for k in state_dict_keys) if state_dict_keys else False
 
                 self.forecast_model = SolarLSTMForecasting(
                     input_size=1,
                     hidden_size=config.get('lstm_hidden_size', 128),
                     num_layers=config.get('lstm_num_layers', 2),
-                    output_size=config.get('forecast_horizon', 10)
+                    output_size=config.get('forecast_horizon', 4),
+                    bidirectional=config.get('bidirectional', inferred_bidirectional),
+                    use_legacy_head=use_legacy_head
                 ).to(self.device)
 
-                self.forecast_model.load_state_dict(checkpoint['model_state_dict'])
+                # Load with strict=True now that head matches checkpoint style
+                self.forecast_model.load_state_dict(checkpoint['model_state_dict'], strict=True)
                 self.forecast_model.eval()
                 logger.info("LSTM model loaded successfully")
 
-            # Load hybrid model
-            if os.path.exists('models1/best_hybrid_model.pth'):
+            # Load hybrid model (support both models and models1 directories)
+            hybrid_ckpt_path = None
+            for candidate in ['models/best_hybrid_model.pth', 'models1/best_hybrid_model.pth']:
+                if os.path.exists(candidate):
+                    hybrid_ckpt_path = candidate
+                    break
+
+            if hybrid_ckpt_path:
                 logger.info("Loading hybrid CNN-LSTM model...")
-                checkpoint = torch.load('models1/best_hybrid_model.pth', map_location=self.device, weights_only=False)
+                checkpoint = torch.load(hybrid_ckpt_path, map_location=self.device, weights_only=False)
                 config = checkpoint.get('config', {})
 
                 self.hybrid_model = HybridCNNLSTM(
@@ -86,7 +109,7 @@ class SolarForecastingAPI:
                     forecast_horizon=config.get('forecast_horizon', 4)
                 ).to(self.device)
 
-                self.hybrid_model.load_state_dict(checkpoint['model_state_dict'])
+                self.hybrid_model.load_state_dict(checkpoint['model_state_dict'], strict=False)
                 self.hybrid_model.eval()
                 logger.info("Hybrid model loaded successfully")
 
@@ -236,7 +259,7 @@ def predict_single():
                 # Clean up on error
                 if os.path.exists(filepath):
                     os.remove(filepath)
-                raisez
+                raise
 
     except Exception as e:
         logger.error(f"Error in single prediction: {str(e)}")
@@ -326,6 +349,39 @@ def health_check():
         'device': str(api.device),
         'timestamp': datetime.now().isoformat()
     })
+
+
+@app.route('/api/training-data', methods=['GET'])
+def training_data():
+    """Return available training history JSON files from logs/ as a single JSON object."""
+    try:
+        logs_dir = 'logs'
+        files_of_interest = [
+            'cnn_training_history.json',
+            'lstm_training_history.json',
+            'hybrid_training_history.json'
+        ]
+
+        result = {}
+        if not os.path.isdir(logs_dir):
+            # No logs directory yet
+            return jsonify(result)
+
+        for fname in os.listdir(logs_dir):
+            if fname.endswith('.json'):
+                path = os.path.join(logs_dir, fname)
+                try:
+                    with open(path, 'r', encoding='utf-8') as fh:
+                        result[fname] = json.load(fh)
+                except Exception as e:
+                    logger.warning(f"Could not read {path}: {e}")
+                    result[fname] = None
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Error reading training data logs: {e}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
