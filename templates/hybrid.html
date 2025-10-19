@@ -1,0 +1,57 @@
+<!-- hybrid.html: Partial for Hybrid Sequence Prediction tab -->
+<div id="hybrid" class="tab-content">
+    <h2>Hybrid CNN-LSTM Prediction</h2>
+    <p class="help-text">Upload a sequence of IR sky images (minimum 20) to get both nowcasting and forecasting using the hybrid model.</p>
+
+    <div class="upload-area" id="upload-area-sequence">
+        <div>
+            <i class="fas fa-images upload-icon" aria-hidden="true"></i>
+            <h3>Upload Image Sequence</h3>
+            <p>Drag and drop multiple images here or click to browse</p>
+            <input type="file" id="sequence-files" accept="image/*" multiple>
+            <button class="upload-button" onclick="document.getElementById('sequence-files').click()">
+                <i class="fas fa-folder-open"></i>
+                Choose Images
+            </button>
+            <p id="upload-area-sequence-info" class="help-text">No files selected</p>
+        </div>
+    </div>
+
+    <div class="file-list" id="file-list" style="display: none;"></div>
+
+    <button class="predict-button" id="predict-hybrid" onclick="predictHybrid()" disabled>
+        <i class="fas fa-brain"></i>
+        Predict with Hybrid Model
+    </button>
+
+    <div class="loading" id="loading-hybrid">
+        <div class="spinner"></div>
+        <p>Processing image sequence with hybrid CNN-LSTM model...</p>
+    </div>
+
+    <div class="result-area" id="result-hybrid">
+        <div class="result-card">
+            <div class="result-title">
+                <i class="fas fa-camera"></i>
+                Nowcast Sequence
+            </div>
+            <div class="chart-container">
+                <canvas id="nowcastChart" width="400" height="200"></canvas>
+            </div>
+            <div class="forecast-grid" id="nowcast-grid"></div>
+        </div>
+        <div class="result-card">
+            <div class="result-title">
+                <i class="fas fa-chart-line"></i>
+                Forecasted Values
+            </div>
+            <div class="chart-container">
+                <canvas id="hybridForecastChart" width="400" height="200"></canvas>
+            </div>
+            <div class="forecast-grid" id="hybrid-forecast-grid"></div>
+            <div class="model-info" id="hybrid-info">--</div>
+        </div>
+    </div>
+
+    <div class="error" id="error-hybrid"></div>
+</div>
