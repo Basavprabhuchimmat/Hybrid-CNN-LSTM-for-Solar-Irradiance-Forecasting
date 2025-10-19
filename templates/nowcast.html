@@ -1,0 +1,43 @@
+<!-- nowcast.html: Partial for Single Image Nowcasting tab -->
+<div id="nowcast" class="tab-content active">
+    <h2>Single Image Nowcasting</h2>
+    <p class="help-text">Upload a single infrared sky image to get current solar irradiance prediction using CNN regression model.</p>
+
+    <div class="upload-area" id="upload-area-single">
+        <div>
+            <i class="fas fa-cloud-upload-alt upload-icon" aria-hidden="true"></i>
+            <h3>Upload IR Sky Image</h3>
+            <p>Drag and drop an image here or click to browse</p>
+            <input type="file" id="single-file" accept="image/*">
+            <button class="upload-button" onclick="document.getElementById('single-file').click()">
+                <i class="fas fa-folder-open"></i>
+                Choose Image
+            </button>
+            <p id="upload-area-single-info" class="help-text">No file selected</p>
+        </div>
+    </div>
+
+    <button class="predict-button" id="predict-single" onclick="predictSingle()" disabled>
+        <i class="fas fa-magic"></i>
+        Predict Current Irradiance
+    </button>
+
+    <div class="loading" id="loading-single">
+        <div class="spinner"></div>
+        <p>Processing image and predicting irradiance...</p>
+    </div>
+
+    <div class="result-area" id="result-single">
+        <div class="result-card">
+            <div class="result-title">
+                <i class="fas fa-sun"></i>
+                Current Solar Irradiance
+            </div>
+            <div class="result-value" id="nowcast-value">--</div>
+            <div class="result-unit">W/m²</div>
+            <div class="model-info" id="nowcast-info">--</div>
+        </div>
+    </div>
+
+    <div class="error" id="error-single"></div>
+</div>
