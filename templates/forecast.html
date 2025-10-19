@@ -1,0 +1,38 @@
+<!-- forecast.html: Partial for Time Series Forecasting tab -->
+<div id="forecast" class="tab-content">
+    <h2>Time Series Forecasting</h2>
+    <p class="help-text">Enter a sequence of historical irradiance values (comma-separated) to forecast future values using LSTM model.</p>
+
+    <textarea class="sequence-input" id="irradiance-sequence" 
+              placeholder="Enter irradiance values separated by commas (e.g., 450.2, 467.8, 523.1, 498.7, ...)&#10;Minimum 20 values required for accurate forecasting"></textarea>
+
+    <div class="help-text">
+        Example: 450.2, 467.8, 523.1, 498.7, 512.3, 489.6, 501.2, 478.9, 534.1, 556.7, 542.3, 518.9, 495.4, 473.2, 461.8, 448.3, 436.7, 429.1, 423.5, 418.2
+    </div>
+
+    <button class="predict-button" id="predict-forecast" onclick="predictForecast()">
+        <i class="fas fa-chart-line"></i>
+        Generate Forecast
+    </button>
+
+    <div class="loading" id="loading-forecast">
+        <div class="spinner"></div>
+        <p>Analyzing time series and generating forecast...</p>
+    </div>
+
+    <div class="result-area" id="result-forecast">
+        <div class="result-card">
+            <div class="result-title">
+                <i class="fas fa-chart-line"></i>
+                Forecasted Solar Irradiance
+            </div>
+            <div class="chart-container">
+                <canvas id="forecastChart" width="400" height="200"></canvas>
+            </div>
+            <div class="forecast-grid" id="forecast-grid"></div>
+            <div class="model-info" id="forecast-info">--</div>
+        </div>
+    </div>
+
+    <div class="error" id="error-forecast"></div>
+</div>
