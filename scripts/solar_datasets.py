@@ -5,6 +5,8 @@ from torch.utils.data import Dataset, DataLoader
 import cv2
 import numpy as np
 import pandas as pd
+from scripts.preprocess import IRImageProcessor
+
 
 class SolarIrradianceDataset(Dataset):
     """
