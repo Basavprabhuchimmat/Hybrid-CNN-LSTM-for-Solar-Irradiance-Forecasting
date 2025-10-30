@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import json
 import cv2  # Needed for image reading
-
+from preprocess import IRImageProcessor
+from cnn_model import SolarCNNRegression, SolarCNNWithFeatureExtraction
 class MultiDayDataset(torch.utils.data.Dataset):
     def __init__(self, image_paths, irradiance_values):
         self.image_paths = image_paths
