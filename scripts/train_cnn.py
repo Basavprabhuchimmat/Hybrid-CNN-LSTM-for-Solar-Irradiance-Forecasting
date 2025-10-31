@@ -9,7 +9,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import json
-import cv2  # Needed for image reading
+import cv2  
 from preprocess import IRImageProcessor
 from cnn_model import SolarCNNRegression, SolarCNNWithFeatureExtraction
 class MultiDayDataset(torch.utils.data.Dataset):
@@ -38,7 +38,6 @@ def get_multi_day_dataset(image_dirs, irradiance_files):
     irradiance_values = []
 
     for img_dir, irr_file in zip(image_dirs, irradiance_files):
-        # Load irradiance data
         if irr_file.endswith('.csv'):
             df = pd.read_csv(irr_file)
             values = df.iloc[:, 1].values.astype(np.float32)
@@ -46,7 +45,7 @@ def get_multi_day_dataset(image_dirs, irradiance_files):
             values = np.loadtxt(irr_file, delimiter=',')[:, 1].astype(np.float32)
 
         files = sorted([f for f in os.listdir(img_dir) if f.endswith(('.png', '.jpg', '.jpeg'))])
-        files = files[:len(values)]  # Ensure matching length
+        files = files[:len(values)]  
 
         image_paths.extend([os.path.join(img_dir, f) for f in files])
         irradiance_values.extend(values[:len(files)])
@@ -55,14 +54,13 @@ def get_multi_day_dataset(image_dirs, irradiance_files):
 
 class CNNTrainer:
     """
-    Trainer class for CNN nowcasting model following paper methodology
+    Trainer class for CNN nowcasting model 
     """
 
     def __init__(self, model_type='standard', config=None):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print(f"Using device: {self.device}")
 
-        # Default configuration
         self.config = {
             'learning_rate': 1e-4,
             'batch_size': 32,
@@ -77,17 +75,14 @@ class CNNTrainer:
         if config:
             self.config.update(config)
 
-        # Create directories
         os.makedirs(self.config['save_dir'], exist_ok=True)
         os.makedirs(self.config['log_dir'], exist_ok=True)
 
-        # Initialize model
         if model_type == 'with_features':
             self.model = SolarCNNWithFeatureExtraction().to(self.device)
         else:
             self.model = SolarCNNRegression().to(self.device)
 
-        # Initialize optimizer and scheduler
         self.optimizer = optim.Adam(
             self.model.parameters(),
             lr=self.config['learning_rate'],
@@ -103,7 +98,6 @@ class CNNTrainer:
 
         self.criterion = nn.MSELoss()
 
-        # Training history
         self.train_losses = []
         self.val_losses = []
         self.best_val_loss = float('inf')
@@ -130,7 +124,6 @@ class CNNTrainer:
                 total_loss += loss.item()
                 num_batches += 1
 
-                # Update progress bar
                 pbar.set_postfix({'Loss': f'{loss.item():.4f}'})
 
         return total_loss / num_batches
@@ -159,7 +152,6 @@ class CNNTrainer:
 
         avg_loss = total_loss / len(val_loader)
 
-        # Calculate additional metrics
         predictions = np.array(predictions)
         targets = np.array(targets)
 
@@ -177,28 +169,23 @@ class CNNTrainer:
         for epoch in range(self.config['num_epochs']):
             print(f"\nEpoch {epoch+1}/{self.config['num_epochs']}")
 
-            # Training
             train_loss = self.train_epoch(train_loader)
             self.train_losses.append(train_loss)
 
             print(f"Train Loss: {train_loss:.4f}")
 
-            # Validation
             if val_loader is not None:
                 val_loss, rmse, mae, predictions, targets = self.validate_epoch(val_loader)
                 self.val_losses.append(val_loss)
 
                 print(f"Val Loss: {val_loss:.4f}, RMSE: {rmse:.2f} W/m², MAE: {mae:.2f} W/m²")
 
-                # Learning rate scheduling
                 self.scheduler.step(val_loss)
 
-                # Early stopping and model saving
                 if val_loss < self.best_val_loss:
                     self.best_val_loss = val_loss
                     self.patience_counter = 0
 
-                    # Save best model
                     torch.save({
                         'epoch': epoch,
                         'model_state_dict': self.model.state_dict(),
@@ -215,7 +202,6 @@ class CNNTrainer:
                     print(f"Early stopping triggered after {epoch+1} epochs")
                     break
 
-        # Save final model
         torch.save({
             'epoch': epoch,
             'model_state_dict': self.model.state_dict(),
@@ -224,7 +210,6 @@ class CNNTrainer:
             'val_losses': self.val_losses
         }, os.path.join(self.config['save_dir'], 'final_cnn_model.pth'))
 
-        # Save training history
         history = {
             'train_losses': self.train_losses,
             'val_losses': self.val_losses,
@@ -271,12 +256,10 @@ class CNNTrainer:
 def train_cnn_nowcasting():
     """Main function to train CNN nowcasting model"""
 
-    # Configuration
     config = {
         'learning_rate': 1e-4,
         'batch_size': 32,
         'num_epochs': 50,
-        # List of days
         'image_dirs': [
             '/content/drive/MyDrive/data/processed/2019_01_15',
             '/content/drive/MyDrive/data/processed/2019_01_16',
@@ -295,11 +278,9 @@ def train_cnn_nowcasting():
         ]
     }
 
-    # Create multi-day dataset
     print("Loading multi-day dataset...")
     dataset = get_multi_day_dataset(config['image_dirs'], config['irradiance_files'])
 
-    # Split dataset
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
 
@@ -307,30 +288,26 @@ def train_cnn_nowcasting():
         dataset, [train_size, val_size]
     )
 
-    # Create data loaders
     train_loader = DataLoader(
         train_dataset,
         batch_size=config['batch_size'],
         shuffle=True,
-        num_workers=2 # Reduced number of workers
+        num_workers=2 
         )
 
     val_loader = DataLoader(
         val_dataset,
         batch_size=config['batch_size'],
         shuffle=False,
-        num_workers=2 # Reduced number of workers
+        num_workers=2 
     )
 
     print(f"Train samples: {len(train_dataset)}, Val samples: {len(val_dataset)}")
 
-    # Initialize trainer
     trainer = CNNTrainer(model_type='standard', config=config)
 
-    # Train model
     train_losses, val_losses = trainer.train(train_loader, val_loader)
 
-    # Plot training curves
     plt.figure(figsize=(10, 6))
     plt.plot(train_losses, label='Train Loss')
     plt.plot(val_losses, label='Validation Loss')

@@ -21,19 +21,18 @@ class HybridTrainer:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print(f"Using device: {self.device}")
 
-        # Default configuration
         self.config = {
             'sequence_length': 20,
             'forecast_horizon': 4,
             'learning_rate': 1e-4,
-            'batch_size': 16,  # Smaller batch size due to sequence processing
+            'batch_size': 16,  
             'num_epochs': 30,
             'lstm_hidden_size': 128,
             'feature_dim': 512,
             'weight_decay': 1e-4,
             'scheduler_patience': 8,
             'early_stopping_patience': 12,
-            'freeze_cnn': True,  # Freeze CNN initially
+            'freeze_cnn': True,  
             'save_dir': 'models',
             'log_dir': 'logs'
         }
@@ -41,11 +40,9 @@ class HybridTrainer:
         if config:
             self.config.update(config)
 
-        # Create directories
         os.makedirs(self.config['save_dir'], exist_ok=True)
         os.makedirs(self.config['log_dir'], exist_ok=True)
 
-        # Initialize hybrid model
         cnn_model = None
         if pretrained_cnn_path:
             print(f"Loading pretrained CNN from {pretrained_cnn_path}")
@@ -61,16 +58,12 @@ class HybridTrainer:
             forecast_horizon=self.config['forecast_horizon']
         ).to(self.device)
 
-        # Set CNN trainable status
         self.model.set_cnn_trainable(not self.config['freeze_cnn'])
 
-        # Initialize optimizer and scheduler
         if self.config['freeze_cnn']:
-            # Only optimize LSTM parameters
             lstm_params = list(self.model.lstm.parameters())
             print(f"Training LSTM only ({sum(p.numel() for p in lstm_params):,} parameters)")
         else:
-            # Optimize all parameters
             lstm_params = self.model.parameters()
             print(f"Training full hybrid model ({sum(p.numel() for p in self.model.parameters()):,} parameters)")
 
@@ -88,11 +81,9 @@ class HybridTrainer:
             verbose=True
         )
 
-        # Loss functions
         self.mse_loss = nn.MSELoss()
         self.mae_loss = nn.L1Loss()
 
-        # Training history
         self.train_losses = []
         self.val_losses = []
         self.best_val_loss = float('inf')
@@ -114,19 +105,15 @@ class HybridTrainer:
 
                 self.optimizer.zero_grad()
 
-                # Forward pass
                 nowcasts, forecasts = self.model(image_sequences)
 
-                # Calculate losses
                 nowcast_loss = self.mse_loss(nowcasts.squeeze(-1), historical_irradiance.squeeze(-1))
                 forecast_loss = self.mse_loss(forecasts, future_irradiance)
 
-                # Combine losses (paper focuses on forecasting, so weight it higher)
                 total_batch_loss = 0.3 * nowcast_loss + 0.7 * forecast_loss
 
                 total_batch_loss.backward()
 
-                # Gradient clipping
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
 
                 self.optimizer.step()
@@ -136,7 +123,6 @@ class HybridTrainer:
                 total_loss += total_batch_loss.item()
                 num_batches += 1
 
-                # Update progress bar
                 pbar.set_postfix({
                     'Nowcast': f'{nowcast_loss.item():.4f}',
                     'Forecast': f'{forecast_loss.item():.4f}',
@@ -172,7 +158,6 @@ class HybridTrainer:
                     total_nowcast_loss += nowcast_loss.item()
                     total_forecast_loss += forecast_loss.item()
 
-                    # Collect predictions for metrics
                     all_nowcast_pred.append(nowcasts.squeeze(-1).cpu().numpy())
                     all_nowcast_target.append(historical_irradiance.squeeze(-1).cpu().numpy())
                     all_forecast_pred.append(forecasts.cpu().numpy())
@@ -186,23 +171,19 @@ class HybridTrainer:
         avg_nowcast_loss = total_nowcast_loss / len(val_loader)
         avg_forecast_loss = total_forecast_loss / len(val_loader)
 
-        # Calculate metrics
         nowcast_pred = np.concatenate(all_nowcast_pred, axis=0)
         nowcast_target = np.concatenate(all_nowcast_target, axis=0)
         forecast_pred = np.concatenate(all_forecast_pred, axis=0)
         forecast_target = np.concatenate(all_forecast_target, axis=0)
 
-        # Nowcast metrics
         nowcast_rmse = np.sqrt(mean_squared_error(
             nowcast_target.flatten(), nowcast_pred.flatten()
         ))
 
-        # Forecast metrics
         forecast_rmse = np.sqrt(mean_squared_error(
             forecast_target.flatten(), forecast_pred.flatten()
         ))
 
-        # Per-step forecast metrics
         forecast_rmse_per_step = []
         for step in range(self.config['forecast_horizon']):
             step_rmse = np.sqrt(mean_squared_error(
@@ -221,14 +202,12 @@ class HybridTrainer:
         for epoch in range(self.config['num_epochs']):
             print(f"\nEpoch {epoch+1}/{self.config['num_epochs']}")
 
-            # Training
             train_nowcast_loss, train_forecast_loss, train_total_loss = self.train_epoch(train_loader)
             self.train_losses.append(train_total_loss)
 
             print(f"Train - Nowcast: {train_nowcast_loss:.4f}, "
                   f"Forecast: {train_forecast_loss:.4f}, Total: {train_total_loss:.4f}")
 
-            # Validation
             if val_loader is not None:
                 (val_nowcast_loss, val_forecast_loss, 
                  nowcast_rmse, forecast_rmse, forecast_rmse_per_step) = self.validate_epoch(val_loader)
@@ -240,15 +219,12 @@ class HybridTrainer:
                       f"Forecast RMSE: {forecast_rmse:.2f} W/m²")
                 print(f"Forecast RMSE per step: {[f'{r:.2f}' for r in forecast_rmse_per_step]}")
 
-                # Learning rate scheduling
                 self.scheduler.step(val_total_loss)
 
-                # Early stopping and model saving
                 if val_total_loss < self.best_val_loss:
                     self.best_val_loss = val_total_loss
                     self.patience_counter = 0
 
-                    # Save best model
                     torch.save({
                         'epoch': epoch,
                         'model_state_dict': self.model.state_dict(),
@@ -267,7 +243,6 @@ class HybridTrainer:
                     print(f"Early stopping triggered after {epoch+1} epochs")
                     break
 
-        # Save final model
         torch.save({
             'epoch': epoch,
             'model_state_dict': self.model.state_dict(),
@@ -276,7 +251,6 @@ class HybridTrainer:
             'val_losses': self.val_losses
         }, os.path.join(self.config['save_dir'], 'final_hybrid_model.pth'))
 
-        # Save training history
         history = {
             'train_losses': self.train_losses,
             'val_losses': self.val_losses,
@@ -293,7 +267,6 @@ class HybridTrainer:
 def train_hybrid_model():
     """Main function to train hybrid CNN-LSTM model"""
 
-    # Configuration
     config = {
         'sequence_length': 20,
         'forecast_horizon': 4,
@@ -306,7 +279,6 @@ def train_hybrid_model():
         'pretrained_cnn_path': 'models/best_cnn_model.pth'
     }
 
-    # Create dataset
     print("Loading sequence dataset...")
     dataset = SolarSequenceDataset(
         image_dir=config['image_dir'],
@@ -315,7 +287,6 @@ def train_hybrid_model():
         forecast_horizon=config['forecast_horizon']
     )
 
-    # Split dataset
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
 
@@ -323,12 +294,11 @@ def train_hybrid_model():
         dataset, [train_size, val_size]
     )
 
-    # Create data loaders
     train_loader = DataLoader(
         train_dataset, 
         batch_size=config['batch_size'], 
         shuffle=True,
-        num_workers=2  # Reduced due to memory constraints with sequences
+        num_workers=2  
     )
 
     val_loader = DataLoader(
@@ -340,13 +310,11 @@ def train_hybrid_model():
 
     print(f"Train samples: {len(train_dataset)}, Val samples: {len(val_dataset)}")
 
-    # Initialize trainer
     trainer = HybridTrainer(
         pretrained_cnn_path=config.get('pretrained_cnn_path'),
         config=config
     )
 
-    # Train model
     train_losses, val_losses = trainer.train(train_loader, val_loader)
 
     print("Hybrid CNN-LSTM training completed!")

@@ -8,7 +8,7 @@ models1
 .env
 .env.example
 1.py
-
+.vscode
 app1.py
 app2.py
 METHOD.md

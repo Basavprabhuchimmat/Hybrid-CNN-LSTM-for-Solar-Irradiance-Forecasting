@@ -9,20 +9,17 @@ import logging
 from datetime import datetime
 import json
 
-# Import our models
 from scripts.EfficientNet import EfficientNetRegression
 from scripts.lstm_model import SolarLSTMForecasting, HybridCNNLSTM
 from scripts.preprocess import IRImageProcessor
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
-# Ensure upload directory exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 class SolarForecastingAPI:
@@ -35,21 +32,17 @@ class SolarForecastingAPI:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logger.info(f"Using device: {self.device}")
 
-        # Initialize image processor
         self.image_processor = IRImageProcessor(target_size=(240, 320))
 
-        # Model placeholders
         self.nowcast_model = None
         self.forecast_model = None
         self.hybrid_model = None
 
-        # Load models
         self.load_models()
 
     def load_models(self):
         """Load trained models"""
         try:
-            # Load CNN nowcasting model
             if os.path.exists('models/best_efficientnet_model.pth'):
                 logger.info("Loading CNN nowcasting model...")
                 self.nowcast_model = EfficientNetRegression().to(self.device)
@@ -58,8 +51,7 @@ class SolarForecastingAPI:
                 self.nowcast_model.eval()
                 logger.info("CNN model loaded successfully")
 
-            # Load LSTM forecasting model
-            # Try models/ then fallback to models1/ to support both locations
+            
             lstm_ckpt_path = None
             for candidate in ['models/best_lstm_model.pth']:
                 if os.path.exists(candidate):
@@ -71,7 +63,6 @@ class SolarForecastingAPI:
                 checkpoint = torch.load(lstm_ckpt_path, map_location=self.device, weights_only=False)
                 config = checkpoint.get('config', {})
 
-                # Infer bidirectionality from state_dict keys if not explicitly provided
                 state_dict_keys = checkpoint.get('model_state_dict', {}).keys()
                 inferred_bidirectional = any('lstm.weight_ih_l0_reverse' in k for k in state_dict_keys) if state_dict_keys else True
 
@@ -86,12 +77,10 @@ class SolarForecastingAPI:
                     use_legacy_head=use_legacy_head
                 ).to(self.device)
 
-                # Load with strict=True now that head matches checkpoint style
                 self.forecast_model.load_state_dict(checkpoint['model_state_dict'], strict=True)
                 self.forecast_model.eval()
                 logger.info("LSTM model loaded successfully")
 
-            # Load hybrid model (support both models and models1 directories)
             hybrid_ckpt_path = None
             for candidate in ['models/best_hybrid_model.pth', 'models1/best_hybrid_model.pth']:
                 if os.path.exists(candidate):
@@ -119,10 +108,8 @@ class SolarForecastingAPI:
     def preprocess_image(self, image_path):
         """Preprocess a single IR image"""
         try:
-            # Process the image
             processed_img = self.image_processor.process_single_image(image_path)
 
-            # Convert to tensor
             img_tensor = torch.tensor(processed_img).permute(2, 0, 1).float() / 255.0
             img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
 
@@ -138,10 +125,8 @@ class SolarForecastingAPI:
             raise ValueError("CNN nowcasting model not loaded")
 
         try:
-            # Preprocess image
             img_tensor = self.preprocess_image(image_path)
 
-            # Predict
             with torch.no_grad():
                 prediction = self.nowcast_model(img_tensor)
                 irradiance = prediction.item()
@@ -162,12 +147,10 @@ class SolarForecastingAPI:
             raise ValueError("LSTM forecasting model not loaded")
 
         try:
-            # Convert to tensor
             seq_tensor = torch.tensor(irradiance_sequence, dtype=torch.float32)
             seq_tensor = seq_tensor.unsqueeze(0).unsqueeze(-1)  # (1, seq_len, 1)
             seq_tensor = seq_tensor.to(self.device)
 
-            # Predict
             with torch.no_grad():
                 forecast = self.forecast_model(seq_tensor)
                 forecast_values = forecast.squeeze().cpu().numpy().tolist()
@@ -189,16 +172,13 @@ class SolarForecastingAPI:
             raise ValueError("Hybrid CNN-LSTM model not loaded")
 
         try:
-            # Process image sequence
             image_tensors = []
             for img_path in image_paths:
                 img_tensor = self.preprocess_image(img_path)
                 image_tensors.append(img_tensor.squeeze(0))  # Remove batch dim
 
-            # Stack into sequence
             sequence_tensor = torch.stack(image_tensors).unsqueeze(0)  # (1, seq_len, C, H, W)
 
-            # Predict
             with torch.no_grad():
                 nowcasts, forecasts = self.hybrid_model(sequence_tensor)
 
@@ -219,7 +199,6 @@ class SolarForecastingAPI:
             raise
 
 
-# Initialize API
 api = SolarForecastingAPI()
 
 @app.route('/')
@@ -239,7 +218,6 @@ def predict_single():
             return jsonify({'error': 'No file selected'}), 400
 
         if file:
-            # Save uploaded file
             filename = secure_filename(file.filename)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"{timestamp}_{filename}"
@@ -247,16 +225,13 @@ def predict_single():
             file.save(filepath)
 
             try:
-                # Perform nowcasting
                 result = api.nowcast_single_image(filepath)
 
-                # Clean up
                 os.remove(filepath)
 
                 return jsonify(result)
 
             except Exception as e:
-                # Clean up on error
                 if os.path.exists(filepath):
                     os.remove(filepath)
                 raise
@@ -279,7 +254,6 @@ def forecast_sequence():
         if not isinstance(sequence, list) or len(sequence) < 10:
             return jsonify({'error': 'Sequence must be a list with at least 10 values'}), 400
 
-        # Perform forecasting
         result = api.forecast_from_sequence(sequence)
 
         return jsonify(result)
@@ -300,7 +274,6 @@ def hybrid_predict():
         if len(files) < 10:
             return jsonify({'error': 'At least 10 images required for sequence prediction'}), 400
 
-        # Save uploaded files
         filepaths = []
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -313,10 +286,8 @@ def hybrid_predict():
                 filepaths.append(filepath)
 
         try:
-            # Perform hybrid prediction
             result = api.hybrid_predict(filepaths)
 
-            # Clean up
             for filepath in filepaths:
                 if os.path.exists(filepath):
                     os.remove(filepath)
@@ -324,7 +295,6 @@ def hybrid_predict():
             return jsonify(result)
 
         except Exception as e:
-            # Clean up on error
             for filepath in filepaths:
                 if os.path.exists(filepath):
                     os.remove(filepath)
@@ -364,7 +334,6 @@ def training_data():
 
         result = {}
         if not os.path.isdir(logs_dir):
-            # No logs directory yet
             return jsonify(result)
 
         for fname in os.listdir(logs_dir):

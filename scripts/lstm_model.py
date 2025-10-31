@@ -3,7 +3,7 @@ import torch.nn as nn
 
 class SolarLSTMForecasting(nn.Module):
     """
-    LSTM model for solar irradiance forecasting following the paper methodology.
+    LSTM model for solar irradiance forecasting .
     Uses bidirectional LSTM with 2 layers and 128 hidden units per direction.
     """
 
@@ -17,7 +17,7 @@ class SolarLSTMForecasting(nn.Module):
         self.bidirectional = bidirectional
         self.use_legacy_head = use_legacy_head
 
-        # Bidirectional LSTM with 2 layers as specified in paper
+        
         self.lstm = nn.LSTM(
             input_size=input_size,
             hidden_size=hidden_size,
@@ -27,15 +27,12 @@ class SolarLSTMForecasting(nn.Module):
             dropout=dropout if num_layers > 1 else 0
         )
 
-        # Fully connected layers as specified in paper
-        # Input size depends on bidirectionality
+        
         lstm_output_size = hidden_size * (2 if bidirectional else 1)
 
         if self.use_legacy_head:
-            # Legacy single fully-connected head to match older checkpoints (keys: 'fc.weight', 'fc.bias')
             self.fc = nn.Linear(lstm_output_size, output_size)
         else:
-            # Modern multi-layer head
             self.fc_layers = nn.Sequential(
                 nn.Linear(lstm_output_size, 128),
                 nn.ReLU(),
@@ -58,7 +55,6 @@ class SolarLSTMForecasting(nn.Module):
                 nn.init.orthogonal_(param.data)
             elif 'bias' in name:
                 param.data.fill_(0)
-                # Set forget gate bias to 1
                 n = param.size(0)
                 start, end = n // 4, n // 2
                 param.data[start:end].fill_(1.)
@@ -73,16 +69,11 @@ class SolarLSTMForecasting(nn.Module):
                     nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
-        # x shape: (batch_size, sequence_length, input_size)
 
-        # LSTM forward pass
         lstm_out, (hidden, cell) = self.lstm(x)
 
-        # Take the output from the last time step
-        # lstm_out shape: (batch_size, sequence_length, hidden_size * 2)
-        last_output = lstm_out[:, -1, :]  # (batch_size, hidden_size * 2)
+        last_output = lstm_out[:, -1, :]  
 
-        # Pass through fully connected layers
         if self.use_legacy_head:
             forecast = self.fc(last_output)
         else:
@@ -104,21 +95,18 @@ class HybridCNNLSTM(nn.Module):
         self.sequence_length = sequence_length
         self.forecast_horizon = forecast_horizon
 
-        # CNN component for nowcasting (pre-trained or trainable)
         if cnn_model is None:
             from scripts.cnn_model import SolarCNNWithFeatureExtraction
             self.cnn = SolarCNNWithFeatureExtraction(feature_dim=feature_dim)
         else:
             self.cnn = cnn_model
 
-        # LSTM component for forecasting
         self.lstm = SolarLSTMForecasting(
-            input_size=1,  # Input is the nowcast irradiance values
+            input_size=1,  
             hidden_size=lstm_hidden_size,
             output_size=forecast_horizon
         )
 
-        # Freeze CNN if using pre-trained model
         self.freeze_cnn = False
 
     def set_cnn_trainable(self, trainable=True):
@@ -140,15 +128,12 @@ class HybridCNNLSTM(nn.Module):
         """
         batch_size, seq_len, channels, height, width = image_sequence.shape
 
-        # Reshape for CNN processing
         images_flat = image_sequence.view(-1, channels, height, width)
 
-        # CNN nowcasting for each image in sequence
-        nowcasts = self.cnn(images_flat)  # (batch_size * seq_len, 1)
-        nowcasts = nowcasts.view(batch_size, seq_len, 1)  # (batch_size, seq_len, 1)
+        nowcasts = self.cnn(images_flat)  
+        nowcasts = nowcasts.view(batch_size, seq_len, 1)  
 
-        # LSTM forecasting using nowcast sequence
-        forecasts = self.lstm(nowcasts)  # (batch_size, forecast_horizon)
+        forecasts = self.lstm(nowcasts)  
 
         return nowcasts, forecasts
 
@@ -160,7 +145,6 @@ class HybridCNNLSTM(nn.Module):
         return nowcasts, forecasts
 
 
-# Simple LSTM for backward compatibility  
 class SolarLSTM(nn.Module):
     """Legacy LSTM model - kept for compatibility"""
 

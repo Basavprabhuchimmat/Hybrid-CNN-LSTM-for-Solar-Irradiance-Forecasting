@@ -39,14 +39,13 @@ class MultiDayTimeSeriesDataset(torch.utils.data.Dataset):
 
 class LSTMTrainer:
     """
-    Trainer class for LSTM forecasting model following paper methodology
+    Trainer class for LSTM forecasting model 
     """
 
     def __init__(self, config=None):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print(f"Using device: {self.device}")
 
-        # Default configuration based on paper
         self.config = {
             'sequence_length': 20,
             'forecast_horizon': 4,
@@ -66,11 +65,9 @@ class LSTMTrainer:
         if config:
             self.config.update(config)
 
-        # Create directories
         os.makedirs(self.config['save_dir'], exist_ok=True)
         os.makedirs(self.config['log_dir'], exist_ok=True)
 
-        # Initialize model
         self.model = SolarLSTMForecasting(
             input_size=1,
             hidden_size=self.config['lstm_hidden_size'],
@@ -79,7 +76,6 @@ class LSTMTrainer:
             dropout=self.config['dropout']
         ).to(self.device)
 
-        # Initialize optimizer and scheduler
         self.optimizer = optim.Adam(
             self.model.parameters(), 
             lr=self.config['learning_rate'],
@@ -95,7 +91,6 @@ class LSTMTrainer:
 
         self.criterion = nn.MSELoss()
 
-        # Training history
         self.train_losses = []
         self.val_losses = []
         self.best_val_loss = float('inf')
@@ -270,7 +265,6 @@ class LSTMTrainer:
 def train_lstm_forecasting():
     """Main function to train LSTM forecasting model"""
 
-    # Configuration
     config = {
         'sequence_length': 20,
         'forecast_horizon': 4,
@@ -280,11 +274,8 @@ def train_lstm_forecasting():
         'irradiance_files': [
             'GIRASOL_DATASET/2019_01_18/pyranometer/2019_01_18.csv',
             'GIRASOL_DATASET/2019_01_19/pyranometer/2019_01_19.csv'
-            # Add more days as needed
         ]
     }
-
-    # Create dataset
     print("Loading multi-day time series dataset...")
     dataset = MultiDayTimeSeriesDataset(
         irradiance_files=config['irradiance_files'],
@@ -292,7 +283,6 @@ def train_lstm_forecasting():
         forecast_horizon=config['forecast_horizon']
     )
 
-    # Split dataset
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
 
