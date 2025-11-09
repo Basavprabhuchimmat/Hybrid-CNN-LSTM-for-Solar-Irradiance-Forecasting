@@ -197,6 +197,18 @@ async def index(request: Request):
     return templates.TemplateResponse('index.html', {"request": request})
 
 
+@app.get('/favicon.ico')
+async def favicon():
+    """Serve a small inline SVG favicon to avoid 404s when browsers request /favicon.ico."""
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'
+        '<rect width="16" height="16" fill="#f6c84c"/>'
+        '<circle cx="8" cy="8" r="5" fill="#ffffff"/>'
+        '</svg>'
+    )
+    return Response(content=svg, media_type='image/svg+xml')
+
+
 @app.post('/predict')
 async def predict_single(file: UploadFile = File(...)):
     if not file or file.filename == '':
