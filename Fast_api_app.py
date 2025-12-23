@@ -1,16 +1,34 @@
 import os
 import logging
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 import json
+from pathlib import Path
 
 import torch
-from fastapi import FastAPI, Request, UploadFile, File, HTTPException
+from fastapi import FastAPI, Request, UploadFile, File, HTTPException, status
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, validator
+
+try:
+    from config import settings
+except ImportError:
+    # Fallback settings if config.py doesn't exist
+    class Settings:
+        CORS_ORIGINS = ["http://localhost:3000"]
+        UPLOAD_FOLDER = "uploads"
+        MAX_UPLOAD_SIZE = 10 * 1024 * 1024
+        ALLOWED_EXTENSIONS = [".png", ".jpg", ".jpeg", ".tiff", ".tif"]
+        MAX_SEQUENCE_IMAGES = 100
+        MIN_SEQUENCE_IMAGES = 10
+        LOG_LEVEL = "INFO"
+        APP_NAME = "Solar Forecasting API"
+        APP_VERSION = "1.0.0"
+    settings = Settings()
 
 try:
     from werkzeug.utils import secure_filename
@@ -23,23 +41,107 @@ from scripts.EfficientNet import EfficientNetRegression
 from scripts.lstm_model import SolarLSTMForecasting, HybridCNNLSTM
 from scripts.preprocess import IRImageProcessor
 
-logging.basicConfig(level=logging.INFO)
+# Configure structured logging
+logging.basicConfig(
+    level=getattr(logging, getattr(settings, 'LOG_LEVEL', 'INFO')),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('logs/api.log') if os.path.exists('logs') else logging.NullHandler()
+    ]
+)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Solar Forecasting API")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+app = FastAPI(
+    title=getattr(settings, 'APP_NAME', 'Solar Forecasting API'),
+    version=getattr(settings, 'APP_VERSION', '1.0.0'),
+    description="""Solar Irradiance Forecasting API using Hybrid EfficientNet-B0 + BiLSTM.
+    
+    This API provides three main endpoints:
+    - Nowcasting: Current irradiance prediction from a single IR image
+    - Forecasting: Future irradiance prediction from a sequence of values
+    - Hybrid: Combined nowcasting and forecasting from image sequence
+    """,
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
-UPLOAD_FOLDER = 'uploads'
+# CORS Middleware - Restricted origins for security
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=getattr(settings, 'CORS_ORIGINS', ["http://localhost:3000"]),
+    allow_credentials=getattr(settings, 'CORS_ALLOW_CREDENTIALS', True),
+    allow_methods=getattr(settings, 'CORS_ALLOW_METHODS', ["GET", "POST"]),
+    allow_headers=getattr(settings, 'CORS_ALLOW_HEADERS', ["*"]),
+)
+
+# GZip compression for responses
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+UPLOAD_FOLDER = getattr(settings, 'UPLOAD_FOLDER', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs('logs', exist_ok=True)
 
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+# Pydantic Models for Request/Response Validation
+class ForecastRequest(BaseModel):
+    """Request model for LSTM forecasting endpoint"""
+    irradiance_sequence: List[float] = Field(
+        ...,
+        description="Sequence of historical irradiance values",
+        min_items=10,
+        max_items=1000
+    )
+    
+    @validator('irradiance_sequence')
+    def validate_sequence(cls, v):
+        if not all(isinstance(x, (int, float)) and x >= 0 for x in v):
+            raise ValueError('All irradiance values must be non-negative numbers')
+        return v
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "irradiance_sequence": [450.2, 478.5, 490.1, 502.3, 515.7, 530.2, 545.8, 560.1, 575.3, 590.5]
+            }
+        }
+
+
+class NowcastResponse(BaseModel):
+    """Response model for nowcasting predictions"""
+    nowcast_irradiance: float = Field(..., description="Predicted current irradiance in W/m²")
+    timestamp: str = Field(..., description="Prediction timestamp (ISO format)")
+    model: str = Field(..., description="Model used for prediction")
+
+
+class ForecastResponse(BaseModel):
+    """Response model for forecasting predictions"""
+    forecast_irradiance: List[float] = Field(..., description="Predicted future irradiance values in W/m²")
+    forecast_horizon: int = Field(..., description="Number of future time steps predicted")
+    timestamp: str = Field(..., description="Prediction timestamp (ISO format)")
+    model: str = Field(..., description="Model used for prediction")
+
+
+class HybridResponse(BaseModel):
+    """Response model for hybrid predictions"""
+    nowcast_sequence: List[float] = Field(..., description="Nowcast irradiance values for input sequence")
+    forecast_irradiance: List[float] = Field(..., description="Forecasted future irradiance values")
+    sequence_length: int = Field(..., description="Length of input sequence")
+    forecast_horizon: int = Field(..., description="Number of future time steps predicted")
+    timestamp: str = Field(..., description="Prediction timestamp (ISO format)")
+    model: str = Field(..., description="Model used for prediction")
+
+
+class HealthResponse(BaseModel):
+    """Response model for health check endpoint"""
+    status: str = Field(..., description="API health status")
+    models: dict = Field(..., description="Status of loaded models")
+    device: str = Field(..., description="Device being used (CPU/CUDA)")
+    timestamp: str = Field(..., description="Health check timestamp")
+    version: str = Field(..., description="API version")
 
 
 class SolarForecastingAPI:
@@ -185,19 +287,46 @@ class SolarForecastingAPI:
 api = SolarForecastingAPI()
 
 
-async def _save_upload_file(upload_file: UploadFile, dest_path: str):
+def _validate_file_extension(filename: str) -> bool:
+    """Validate file extension against allowed types"""
+    allowed = getattr(settings, 'ALLOWED_EXTENSIONS', ['.png', '.jpg', '.jpeg', '.tiff', '.tif'])
+    return any(filename.lower().endswith(ext) for ext in allowed)
+
+
+async def _save_upload_file(upload_file: UploadFile, dest_path: str) -> None:
+    """Save uploaded file with size limit validation"""
+    max_size = getattr(settings, 'MAX_UPLOAD_SIZE', 10 * 1024 * 1024)
+    
+    # Validate file extension
+    if not _validate_file_extension(upload_file.filename):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed types: {getattr(settings, 'ALLOWED_EXTENSIONS', [])}"
+        )
+    
+    # Read and validate file size
     contents = await upload_file.read()
+    if len(contents) > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large. Maximum size: {max_size / (1024*1024):.1f}MB"
+        )
+    
+    # Save file
     with open(dest_path, 'wb') as fh:
         fh.write(contents)
     await upload_file.close()
+    
+    logger.info(f"File saved: {dest_path} ({len(contents)} bytes)")
 
 
-@app.get('/')
+@app.get('/', tags=["Frontend"], summary="Main page")
 async def index(request: Request):
+    """Serve the main web interface"""
     return templates.TemplateResponse('index.html', {"request": request})
 
 
-@app.get('/favicon.ico')
+@app.get('/favicon.ico', tags=["Frontend"], include_in_schema=False)
 async def favicon():
     """Serve a small inline SVG favicon to avoid 404s when browsers request /favicon.ico."""
     svg = (
@@ -209,10 +338,20 @@ async def favicon():
     return Response(content=svg, media_type='image/svg+xml')
 
 
-@app.post('/predict')
-async def predict_single(file: UploadFile = File(...)):
-    if not file or file.filename == '':
-        raise HTTPException(status_code=400, detail="No file uploaded")
+@app.post(
+    '/predict',
+    response_model=NowcastResponse,
+    tags=["Nowcasting"],
+    summary="Predict current solar irradiance",
+    description="Upload a single infrared sky image to get the current solar irradiance prediction."
+)
+async def predict_single(file: UploadFile = File(..., description="Infrared sky image")):
+    """Nowcast endpoint: Predict current irradiance from a single image"""
+    if not file or not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No file uploaded or filename is empty"
+        )
 
     filename = secure_filename(file.filename)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -221,89 +360,180 @@ async def predict_single(file: UploadFile = File(...)):
 
     try:
         await _save_upload_file(file, filepath)
+        logger.info(f"Processing single image prediction: {filename}")
         result = api.nowcast_single_image(filepath)
+        
+        # Cleanup
         if os.path.exists(filepath):
             os.remove(filepath)
+            
+        logger.info(f"Prediction successful: {result['nowcast_irradiance']} W/m²")
         return JSONResponse(result)
+        
+    except HTTPException:
+        raise
     except Exception as e:
+        # Cleanup on error
         if os.path.exists(filepath):
             os.remove(filepath)
-        logger.error(f"Error in single prediction: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in single prediction: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction failed: {str(e)}"
+        )
 
 
-class ForecastRequest(BaseModel):
-    irradiance_sequence: List[float]
-
-
-@app.post('/forecast')
+@app.post(
+    '/forecast',
+    response_model=ForecastResponse,
+    tags=["Forecasting"],
+    summary="Forecast future solar irradiance",
+    description="Provide a sequence of historical irradiance values to predict future values."
+)
 async def forecast_sequence(req: ForecastRequest):
+    """Forecast endpoint: Predict future irradiance from historical sequence"""
     sequence = req.irradiance_sequence
-    if not isinstance(sequence, list) or len(sequence) < 10:
-        raise HTTPException(status_code=400, detail='Sequence must be a list with at least 10 values')
-
+    
+    logger.info(f"Processing forecast for sequence of length {len(sequence)}")
+    
     try:
         result = api.forecast_from_sequence(sequence)
+        logger.info(f"Forecast successful: {result['forecast_horizon']} steps predicted")
         return JSONResponse(result)
+        
+    except RuntimeError as e:
+        logger.error(f"Model not loaded: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e)
+        )
     except Exception as e:
-        logger.error(f"Error in forecasting: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in forecasting: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Forecasting failed: {str(e)}"
+        )
 
 
-@app.post('/hybrid_predict')
-async def hybrid_predict(files: List[UploadFile] = File(...)):
-    if not files or len(files) < 10:
-        raise HTTPException(status_code=400, detail='At least 10 images required for sequence prediction')
+@app.post(
+    '/hybrid_predict',
+    response_model=HybridResponse,
+    tags=["Hybrid"],
+    summary="Hybrid nowcasting and forecasting",
+    description="Upload a sequence of infrared sky images for combined nowcasting and forecasting."
+)
+async def hybrid_predict(
+    files: List[UploadFile] = File(
+        ...,
+        description="Sequence of infrared sky images (min 10, max 100)"
+    )
+):
+    """Hybrid endpoint: Combined nowcasting and forecasting from image sequence"""
+    min_images = getattr(settings, 'MIN_SEQUENCE_IMAGES', 10)
+    max_images = getattr(settings, 'MAX_SEQUENCE_IMAGES', 100)
+    
+    if not files or len(files) < min_images:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'At least {min_images} images required for sequence prediction'
+        )
+    
+    if len(files) > max_images:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'Maximum {max_images} images allowed per request'
+        )
 
     saved_paths: List[str] = []
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
     try:
+        logger.info(f"Processing hybrid prediction with {len(files)} images")
+        
         for i, file in enumerate(files):
-            if file.filename:
-                filename = secure_filename(file.filename)
-                filename = f"{timestamp}_{i:03d}_{filename}"
-                filepath = os.path.join(UPLOAD_FOLDER, filename)
-                await _save_upload_file(file, filepath)
-                saved_paths.append(filepath)
+            if not file.filename:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"File at index {i} has no filename"
+                )
+            
+            filename = secure_filename(file.filename)
+            filename = f"{timestamp}_{i:03d}_{filename}"
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            await _save_upload_file(file, filepath)
+            saved_paths.append(filepath)
 
         result = api.hybrid_predict(saved_paths)
 
+        # Cleanup
         for p in saved_paths:
             if os.path.exists(p):
                 os.remove(p)
 
+        logger.info(f"Hybrid prediction successful: {result['forecast_horizon']} steps forecasted")
         return JSONResponse(result)
 
-    except Exception as e:
+    except HTTPException:
+        # Cleanup on validation error
         for p in saved_paths:
             if os.path.exists(p):
                 os.remove(p)
-        logger.error(f"Error in hybrid prediction: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise
+        
+    except Exception as e:
+        # Cleanup on processing error
+        for p in saved_paths:
+            if os.path.exists(p):
+                os.remove(p)
+        logger.error(f"Error in hybrid prediction: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Hybrid prediction failed: {str(e)}"
+        )
 
 
-@app.get('/health')
+@app.get(
+    '/health',
+    response_model=HealthResponse,
+    tags=["Monitoring"],
+    summary="Health check",
+    description="Check API health status and model availability."
+)
 async def health_check():
+    """Health check endpoint for monitoring and load balancers"""
     model_status = {
         'cnn_loaded': api.nowcast_model is not None,
         'lstm_loaded': api.forecast_model is not None,
         'hybrid_loaded': api.hybrid_model is not None
     }
-
+    
+    # Determine overall health
+    all_models_loaded = all(model_status.values())
+    health_status = 'healthy' if all_models_loaded else 'degraded'
+    
     return JSONResponse({
-        'status': 'healthy',
+        'status': health_status,
         'models': model_status,
         'device': str(api.device),
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now().isoformat(),
+        'version': getattr(settings, 'APP_VERSION', '1.0.0')
     })
 
 
-@app.get('/api/training-data')
+@app.get(
+    '/api/training-data',
+    tags=["Monitoring"],
+    summary="Get training history",
+    description="Retrieve training history and metrics from log files."
+)
 async def training_data():
+    """Get training history and performance metrics"""
     try:
-        logs_dir = 'logs'
+        logs_dir = getattr(settings, 'LOG_DIR', 'logs')
         result = {}
+        
         if not os.path.isdir(logs_dir):
+            logger.warning(f"Logs directory not found: {logs_dir}")
             return JSONResponse(result)
 
         for fname in os.listdir(logs_dir):
@@ -312,20 +542,39 @@ async def training_data():
                 try:
                     with open(path, 'r', encoding='utf-8') as fh:
                         result[fname] = json.load(fh)
+                    logger.debug(f"Loaded training data from {fname}")
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Invalid JSON in {path}: {e}")
+                    result[fname] = {"error": "Invalid JSON format"}
                 except Exception as e:
                     logger.warning(f"Could not read {path}: {e}")
-                    result[fname] = None
+                    result[fname] = {"error": str(e)}
 
         return JSONResponse(result)
 
     except Exception as e:
-        logger.error(f"Error reading training data logs: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error reading training data logs: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve training data: {str(e)}"
+        )
 
 
 if __name__ == '__main__':
     import uvicorn
-    # Bind to 127.0.0.1 so you can open the site in a browser at http://127.0.0.1:5000
-    # Using 0.0.0.0 is fine for server binding, but most browsers cannot open that
-    # address directly (ERR_ADDRESS_INVALID). Run with localhost/127.0.0.1 instead.
-    uvicorn.run(app, host='127.0.0.1', port=5000, reload=True)
+    
+    host = getattr(settings, 'HOST', '127.0.0.1')
+    port = getattr(settings, 'PORT', 5000)
+    debug = getattr(settings, 'DEBUG', False)
+    
+    logger.info(f"Starting Solar Forecasting API on {host}:{port}")
+    logger.info(f"Debug mode: {debug}")
+    logger.info(f"API documentation available at: http://{host}:{port}/docs")
+    
+    uvicorn.run(
+        app,
+        host=host,
+        port=port,
+        reload=debug,
+        log_level="info"
+    )
