@@ -1,0 +1,34 @@
+# FastAPI Application Dependencies
+# Use: pip install -r requirements-fastapi.txt
+
+# Core FastAPI
+fastapi==0.116.1
+uvicorn[standard]==0.32.1
+python-multipart==0.0.20
+
+# Pydantic for validation
+pydantic==2.10.5
+pydantic-settings==2.7.1
+
+# Deep Learning
+torch==2.5.1
+torchvision==0.20.1
+
+# Image Processing
+opencv-python==4.10.0.84
+Pillow==11.0.0
+
+# Scientific Computing
+numpy==2.2.6
+pandas==2.2.3
+
+# HTTP & Async
+httptools==0.6.4
+aiofiles==24.1.0
+
+# Templating
+Jinja2==3.1.6
+
+# Optional: For production
+# gunicorn==23.0.0
+# python-dotenv==1.0.1
